@@ -148,3 +148,60 @@ Prefijo base: `/api`
 | **CA-10** | Al quitar un repuesto de una orden o cancelar la orden, el stock regresa automáticamente al inventario. |
 | **CA-11** | No se pueden agregar/quitar repuestos ni editar órdenes en estado `completed` o `cancelled`. |
 | **CA-12** | El inventario resalta visualmente los repuestos con `stock <= min_stock` y permite reponer stock como `admin`. |
+
+---
+
+## 8. Historias de Usuario (HUs)
+
+### Autenticación y Seguridad
+- **HU-01 — Registro e inicio de sesión (`client`, `mechanic`, `admin`)**
+  - **Como** usuario del taller, **quiero** registrarme como cliente e iniciar sesión con email y contraseña, **para** acceder de forma segura a las vistas correspondientes a mi rol.
+  - *Trazabilidad:* `CA-01`, `CA-02`.
+
+### Gestión de Vehículos
+- **HU-02 — Registro de vehículos (`admin`, `client`)**
+  - **Como** jefe de taller o cliente, **quiero** registrar un vehículo con su patente, marca, modelo y año, **para** poder asociarle órdenes de trabajo sin duplicar patentes.
+  - *Trazabilidad:* `CA-03`, `CB-05`.
+
+- **HU-03 — Consulta de flota y estado actual (`admin`, `mechanic`, `client`)**
+  - **Como** usuario autenticado, **quiero** listar los vehículos permitidos por mi rol y ver si tienen una orden abierta, **para** conocer rápidamente su situación en el taller.
+  - *Trazabilidad:* `CA-02`.
+
+### Gestión de Órdenes de Trabajo
+- **HU-04 — Alta de orden de trabajo (`admin`)**
+  - **Como** jefe de taller, **quiero** crear una orden de trabajo para un vehículo ingresando la falla reportada y opcionalmente un mecánico asignado, **para** iniciar el flujo de atención siempre que el vehículo no tenga otra orden abierta.
+  - *Trazabilidad:* `RN-01`, `RN-02`, `CA-04`, `CA-05`.
+
+- **HU-05 — Asignación de mecánico (`admin`)**
+  - **Como** jefe de taller, **quiero** asignar o reasignar un mecánico válido a una orden abierta, **para** distribuir la carga de trabajo del taller.
+  - *Trazabilidad:* `RN-02`, `CA-05`.
+
+- **HU-06 — Diagnóstico y mano de obra (`admin`, `mechanic`)**
+  - **Como** mecánico asignado (o jefe de taller), **quiero** cargar el diagnóstico técnico y el costo de mano de obra de una orden abierta, **para** poder presupuestar la reparación al cliente.
+  - *Trazabilidad:* `RN-04`, `RN-08`, `CA-07`, `CA-11`.
+
+- **HU-07 — Asignación y quita de repuestos en orden (`admin`, `mechanic`)**
+  - **Como** mecánico o jefe de taller, **quiero** agregar o quitar repuestos a una orden de trabajo abierta, **para** que el stock se descuente o devuelva automáticamente y el precio quede congelado al momento de presupuestar.
+  - *Trazabilidad:* `RN-06`, `RN-07`, `CB-01`, `CB-02`, `CA-08`, `CA-09`, `CA-10`, `CA-11`.
+
+- **HU-08 — Avance operativo de estados (`admin`, `mechanic`)**
+  - **Como** mecánico o jefe de taller, **quiero** avanzar el estado de una orden (`received` → `diagnosing` → `quoted` y luego `approved` → `in_progress` → `completed`), **para** mantener trazabilidad real cumpliendo las validaciones de cada etapa.
+  - *Trazabilidad:* `RN-03`, `RN-04`, `RN-05`, `CA-06`, `CA-07`.
+
+- **HU-09 — Aprobación o rechazo de presupuesto (`client`, `admin`)**
+  - **Como** cliente dueño del vehículo, **quiero** revisar el diagnóstico, los repuestos y el monto total de mi orden presupuestada (`quoted`) para aprobarla o cancelarla, **para** autorizar la reparación antes de que el taller continúe.
+  - *Trazabilidad:* `RN-03`, `RN-07`, `CB-03`, `CA-02`, `CA-10`.
+
+- **HU-10 — Filtrado y seguimiento de órdenes (`admin`, `mechanic`, `client`)**
+  - **Como** usuario del sistema, **quiero** filtrar órdenes por estado o patente, **para** encontrar rápidamente una reparación específica.
+  - *Trazabilidad:* `CA-02`.
+
+### Inventario de Repuestos y Dashboard
+- **HU-11 — Alta y reposición de repuestos (`admin`)**
+  - **Como** jefe de taller, **quiero** dar de alta nuevos repuestos, visualizar alertas cuando el stock esté por debajo o igual al mínimo y registrar reposiciones, **para** evitar quiebres de inventario.
+  - *Trazabilidad:* `CB-04`, `CA-12`.
+
+- **HU-12 — Tablero de métricas del taller (`admin`, `mechanic`)**
+  - **Como** jefe de taller o mecánico, **quiero** ver un resumen con órdenes activas por estado, total facturado en órdenes finalizadas y lista de repuestos con stock crítico, **para** tomar decisiones operativas diarias.
+  - *Trazabilidad:* `CA-02`, `CA-12`.
+
