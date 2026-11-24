@@ -12,6 +12,12 @@ export const partsController = {
     res.status(201).json({ part });
   },
 
+  async update(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    const part = await partsService.updatePart(id, req.body);
+    res.status(200).json({ part });
+  },
+
   async restock(req: Request, res: Response) {
     const id = Number(req.params.id);
     const part = await partsService.restockPart(id, req.body.quantity);

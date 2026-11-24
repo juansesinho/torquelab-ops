@@ -7,8 +7,14 @@ export const ordersController = {
     const orders = await ordersService.listOrders(req.user!, {
       status: req.query.status as OrderStatus | undefined,
       plate: req.query.plate as string | undefined,
+      scope: req.query.scope as 'mine' | 'unassigned' | 'all' | undefined,
     });
     res.status(200).json({ orders });
+  },
+
+  async claim(req: Request, res: Response) {
+    const order = await ordersService.claimOrder(Number(req.params.id), req.user!);
+    res.status(200).json({ order });
   },
 
   async getById(req: Request, res: Response) {

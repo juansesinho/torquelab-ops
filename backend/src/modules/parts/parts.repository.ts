@@ -68,6 +68,22 @@ export const partsRepository = {
     return res.rows[0];
   },
 
+  async update(
+    id: number,
+    data: { name?: string; min_stock?: number; unit_price?: number }
+  ): Promise<PartRow | null> {
+    const res = await pool.query<PartRow>(
+      `UPDATE parts
+       SET name = COALESCE($2, name),
+           min_stock = COALESCE($3, min_stock),
+           unit_price = COALESCE($4, unit_price)
+       WHERE id = $1
+       RETURNING id, sku, name, stock, min_stock, unit_price, (stock <= min_stock) AS low_stock, created_at`,
+      [id, data.name ?? null, data.min_stock ?? null, data.unit_price ?? null]
+    );
+    return res.rows[0] ?? null;
+  },
+
   async addStock(id: number, quantity: number): Promise<PartRow | null> {
     const res = await pool.query<PartRow>(
       `UPDATE parts

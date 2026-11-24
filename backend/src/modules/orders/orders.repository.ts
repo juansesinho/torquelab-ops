@@ -36,6 +36,8 @@ export interface WorkOrderItemRow {
 export const ordersRepository = {
   async findAll(filters: {
     clientId?: number;
+    mechanicId?: number;
+    onlyUnassigned?: boolean;
     status?: OrderStatus;
     plate?: string;
   }): Promise<WorkOrderRow[]> {
@@ -45,6 +47,13 @@ export const ordersRepository = {
     if (filters.clientId !== undefined) {
       params.push(filters.clientId);
       conditions.push(`v.client_id = $${params.length}`);
+    }
+    if (filters.mechanicId !== undefined) {
+      params.push(filters.mechanicId);
+      conditions.push(`wo.mechanic_id = $${params.length}`);
+    }
+    if (filters.onlyUnassigned) {
+      conditions.push(`wo.mechanic_id IS NULL AND wo.status NOT IN ('completed', 'cancelled')`);
     }
     if (filters.status) {
       params.push(filters.status);

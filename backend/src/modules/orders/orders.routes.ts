@@ -39,6 +39,12 @@ ordersRouter.patch(
   validate({ params: orderIdParamSchema, body: updateOrderSchema }),
   asyncHandler(ordersController.update)
 );
+ordersRouter.post(
+  '/:id/claim',
+  authorize('mechanic'),
+  validate({ params: orderIdParamSchema }),
+  asyncHandler(ordersController.claim)
+);
 ordersRouter.patch(
   '/:id/status',
   validate({ params: orderIdParamSchema, body: updateOrderStatusSchema }),

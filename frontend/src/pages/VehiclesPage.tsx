@@ -1,6 +1,6 @@
-import { Plus } from 'lucide-react';
+import { ArrowRight, Plus, Search, Wrench } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -13,8 +13,10 @@ import { User, Vehicle } from '../types/domain';
 
 export function VehiclesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [clients, setClients] = useState<User[]>([]);
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -71,11 +73,22 @@ export function VehiclesPage() {
     }
   }
 
+  const filtered = vehicles.filter((v) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      v.plate.toLowerCase().includes(q) ||
+      v.brand.toLowerCase().includes(q) ||
+      v.model.toLowerCase().includes(q) ||
+      v.client_name.toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Vehículos"
-        subtitle="Flota registrada y estado de órdenes activas por patente."
+        subtitle="Flota registrada, estado actual y acceso directo a órdenes."
         action={
           (user?.role === 'admin' || user?.role === 'client') && (
             <Button onClick={() => setModalOpen(true)}>
@@ -85,18 +98,30 @@ export function VehiclesPage() {
         }
       />
 
+      <Card>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-500" />
+          <Input
+            placeholder="Filtrar por patente, marca, modelo o titular..."
+            className="pl-9"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+      </Card>
+
       {error && <AlertBanner message={error} />}
 
       {loading ? (
         <p className="text-sm text-slate-400">Cargando vehículos...</p>
-      ) : vehicles.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <EmptyState
-          title="No hay vehículos registrados"
-          description="Registrá un vehículo para poder asociarle órdenes de trabajo."
+          title="No se encontraron vehículos"
+          description="Registrá un vehículo o ajustá el término de búsqueda."
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {vehicles.map((v) => (
+          {filtered.map((v) => (
             <Card key={v.id} className="flex flex-col justify-between gap-4">
               <div>
                 <div className="flex items-center justify-between">
@@ -113,15 +138,23 @@ export function VehiclesPage() {
 
               <div className="border-t border-slate-800 pt-3">
                 {v.active_order_id && v.active_order_status ? (
-                  <div className="flex items-center justify-between">
-                    <Link
-                      to={`/orders/${v.active_order_id}`}
-                      className="font-mono text-xs font-semibold text-orange-400 hover:underline"
-                    >
-                      {v.active_order_code}
-                    </Link>
+                  <div className="flex items-center justify-between gap-2">
                     <StatusBadge status={v.active_order_status} />
+                    <Link to={`/orders/${v.active_order_id}`}>
+                      <Button size="sm" variant="secondary">
+                        {v.active_order_code} <ArrowRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </Link>
                   </div>
+                ) : user?.role === 'admin' ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => navigate(`/orders?newForVehicle=${v.id}`)}
+                  >
+                    <Wrench className="h-3.5 w-3.5" /> Abrir Orden de Trabajo
+                  </Button>
                 ) : (
                   <span className="text-xs text-slate-500">Sin orden activa en taller</span>
                 )}

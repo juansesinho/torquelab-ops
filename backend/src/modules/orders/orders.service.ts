@@ -62,10 +62,33 @@ async function assertValidMechanic(mechanicId: number): Promise<void> {
 export const ordersService = {
   async listOrders(
     user: AuthPayload,
-    filters: { status?: OrderStatus; plate?: string }
+    filters: { status?: OrderStatus; plate?: string; scope?: 'mine' | 'unassigned' | 'all' }
   ) {
+    if (user.role === 'client') {
+      return ordersRepository.findAll({
+        clientId: user.userId,
+        status: filters.status,
+        plate: filters.plate,
+      });
+    }
+
+    if (user.role === 'mechanic') {
+      if (filters.scope === 'unassigned') {
+        return ordersRepository.findAll({
+          onlyUnassigned: true,
+          status: filters.status,
+          plate: filters.plate,
+        });
+      }
+      return ordersRepository.findAll({
+        mechanicId: user.userId,
+        status: filters.status,
+        plate: filters.plate,
+      });
+    }
+
     return ordersRepository.findAll({
-      clientId: user.role === 'client' ? user.userId : undefined,
+      onlyUnassigned: filters.scope === 'unassigned',
       status: filters.status,
       plate: filters.plate,
     });
@@ -79,9 +102,43 @@ export const ordersService = {
     if (user.role === 'client' && order.client_id !== user.userId) {
       throw new ForbiddenError('No tenés permisos para ver esta orden');
     }
+    if (
+      user.role === 'mechanic' &&
+      order.mechanic_id !== null &&
+      order.mechanic_id !== user.userId
+    ) {
+      throw new ForbiddenError('Esta orden está asignada a otro mecánico');
+    }
 
     const items = await ordersRepository.findItemsByOrderId(orderId);
     return { ...order, items };
+  },
+
+  async claimOrder(orderId: number, user: AuthPayload) {
+    if (user.role !== 'mechanic') {
+      throw new ForbiddenError('Solo un mecánico puede tomar una orden sin asignar');
+    }
+    await withTransaction(async (client) => {
+      const res = await client.query<{ mechanic_id: number | null; status: OrderStatus; code: string }>(
+        `SELECT mechanic_id, status, code FROM work_orders WHERE id = $1 FOR UPDATE`,
+        [orderId]
+      );
+      if (res.rowCount === 0) {
+        throw new NotFoundError('Orden de trabajo no encontrada');
+      }
+      const row = res.rows[0];
+      if (row.status === 'completed' || row.status === 'cancelled') {
+        throw new ConflictError(`La orden ${row.code} ya está cerrada`);
+      }
+      if (row.mechanic_id !== null && row.mechanic_id !== user.userId) {
+        throw new ConflictError(`La orden ${row.code} ya fue asignada a otro mecánico`);
+      }
+      await client.query(
+        `UPDATE work_orders SET mechanic_id = $1, updated_at = NOW() WHERE id = $2`,
+        [user.userId, orderId]
+      );
+    });
+    return this.getOrderDetail(orderId, user);
   },
 
   async createOrder(input: CreateOrderInput) {
@@ -121,6 +178,13 @@ export const ordersService = {
 
     // RN-08: Inmutabilidad de órdenes cerradas
     assertOrderMutable(existing);
+
+    if (
+      user.role === 'mechanic' &&
+      existing.mechanic_id !== user.userId
+    ) {
+      throw new ForbiddenError('Solo podés editar órdenes asignadas a tu usuario');
+    }
 
     if (input.mechanic_id !== undefined) {
       if (user.role !== 'admin') {
@@ -172,6 +236,9 @@ export const ordersService = {
 
       if (user.role === 'client' && order.client_id !== user.userId) {
         throw new ForbiddenError('No tenés permisos sobre esta orden');
+      }
+      if (user.role === 'mechanic' && order.mechanic_id !== user.userId) {
+        throw new ForbiddenError('Solo podés cambiar el estado de órdenes asignadas a tu usuario');
       }
 
       // RN-03: Máquina de estados estricta + permisos por rol
@@ -228,12 +295,15 @@ export const ordersService = {
 
   async addItem(orderId: number, input: AddOrderItemInput, user: AuthPayload) {
     await withTransaction(async (client) => {
-      const orderLock = await client.query<{ status: OrderStatus; code: string }>(
-        `SELECT status, code FROM work_orders WHERE id = $1 FOR UPDATE`,
+      const orderLock = await client.query<{ status: OrderStatus; code: string; mechanic_id: number | null }>(
+        `SELECT status, code, mechanic_id FROM work_orders WHERE id = $1 FOR UPDATE`,
         [orderId]
       );
       if (orderLock.rowCount === 0) {
         throw new NotFoundError('Orden de trabajo no encontrada');
+      }
+      if (user.role === 'mechanic' && orderLock.rows[0].mechanic_id !== user.userId) {
+        throw new ForbiddenError('Solo podés agregar repuestos en órdenes asignadas a tu usuario');
       }
       const orderStatus = orderLock.rows[0].status;
       if (orderStatus === 'completed' || orderStatus === 'cancelled') {
@@ -300,12 +370,15 @@ export const ordersService = {
 
   async removeItem(orderId: number, itemId: number, user: AuthPayload) {
     await withTransaction(async (client) => {
-      const orderLock = await client.query<{ status: OrderStatus; code: string }>(
-        `SELECT status, code FROM work_orders WHERE id = $1 FOR UPDATE`,
+      const orderLock = await client.query<{ status: OrderStatus; code: string; mechanic_id: number | null }>(
+        `SELECT status, code, mechanic_id FROM work_orders WHERE id = $1 FOR UPDATE`,
         [orderId]
       );
       if (orderLock.rowCount === 0) {
         throw new NotFoundError('Orden de trabajo no encontrada');
+      }
+      if (user.role === 'mechanic' && orderLock.rows[0].mechanic_id !== user.userId) {
+        throw new ForbiddenError('Solo podés agregar repuestos en órdenes asignadas a tu usuario');
       }
       const orderStatus = orderLock.rows[0].status;
       if (orderStatus === 'completed' || orderStatus === 'cancelled') {

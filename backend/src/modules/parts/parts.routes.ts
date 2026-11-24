@@ -3,7 +3,12 @@ import { asyncHandler } from '../../middlewares/asyncHandler';
 import { authenticate, authorize } from '../../middlewares/auth';
 import { validate } from '../../middlewares/validate';
 import { partsController } from './parts.controller';
-import { createPartSchema, partIdParamSchema, restockPartSchema } from './parts.schema';
+import {
+  createPartSchema,
+  partIdParamSchema,
+  restockPartSchema,
+  updatePartSchema,
+} from './parts.schema';
 
 export const partsRouter = Router();
 
@@ -15,6 +20,12 @@ partsRouter.post(
   authorize('admin'),
   validate({ body: createPartSchema }),
   asyncHandler(partsController.create)
+);
+partsRouter.patch(
+  '/:id',
+  authorize('admin'),
+  validate({ params: partIdParamSchema, body: updatePartSchema }),
+  asyncHandler(partsController.update)
 );
 partsRouter.patch(
   '/:id/restock',

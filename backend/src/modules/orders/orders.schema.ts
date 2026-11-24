@@ -24,6 +24,7 @@ export const orderItemParamSchema = z.object({
 export const listOrdersQuerySchema = z.object({
   status: z.enum(ORDER_STATUSES).optional(),
   plate: z.string().trim().optional(),
+  scope: z.enum(['mine', 'unassigned', 'all']).optional(),
 });
 
 export const createOrderSchema = z.object({

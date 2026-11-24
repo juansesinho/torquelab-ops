@@ -94,6 +94,14 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
+    update: (
+      id: number,
+      payload: { name?: string; min_stock?: number; unit_price?: number }
+    ) =>
+      request<{ part: Part }>(`/parts/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }),
     restock: (id: number, quantity: number) =>
       request<{ part: Part }>(`/parts/${id}/restock`, {
         method: 'PATCH',
@@ -101,14 +109,19 @@ export const api = {
       }),
   },
   orders: {
-    list: (filters?: { status?: string; plate?: string }) => {
+    list: (filters?: { status?: string; plate?: string; scope?: 'mine' | 'unassigned' | 'all' }) => {
       const params = new URLSearchParams();
       if (filters?.status) params.set('status', filters.status);
       if (filters?.plate) params.set('plate', filters.plate);
+      if (filters?.scope) params.set('scope', filters.scope);
       const qs = params.toString();
       return request<{ orders: WorkOrder[] }>(`/orders${qs ? `?${qs}` : ''}`);
     },
     getById: (id: number) => request<{ order: WorkOrder }>(`/orders/${id}`),
+    claim: (id: number) =>
+      request<{ order: WorkOrder }>(`/orders/${id}/claim`, {
+        method: 'POST',
+      }),
     create: (payload: {
       vehicle_id: number;
       mechanic_id?: number | null;
