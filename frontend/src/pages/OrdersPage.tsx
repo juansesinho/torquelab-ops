@@ -149,6 +149,40 @@ export function OrdersPage() {
         }
       />
 
+      {/* Resumen destacado para Cliente: presupuestos pendientes de aprobación */}
+      {user?.role === 'client' && !loading && (
+        <div className="grid gap-4 md:grid-cols-3">
+          {orders
+            .filter((o) => o.status === 'quoted')
+            .map((quotedOrder) => (
+              <Card
+                key={quotedOrder.id}
+                className="md:col-span-3 border-amber-500/50 bg-amber-950/20 flex flex-wrap items-center justify-between gap-4"
+              >
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-amber-300">
+                    Presupuesto v{quotedOrder.quote_version ?? 1} esperando tu aprobación
+                  </span>
+                  <h3 className="mt-1 text-lg font-bold text-white">
+                    {quotedOrder.brand} {quotedOrder.model} ({quotedOrder.plate}) —{' '}
+                    <span className="font-mono text-orange-400">
+                      {formatCurrency(quotedOrder.total_cost)}
+                    </span>
+                  </h3>
+                  {quotedOrder.requote_reason && (
+                    <p className="mt-1 text-xs text-amber-200">
+                      Motivo de actualización: {quotedOrder.requote_reason}
+                    </p>
+                  )}
+                </div>
+                <Button onClick={() => navigate(`/orders/${quotedOrder.id}`)}>
+                  Revisar y Aprobar <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Card>
+            ))}
+        </div>
+      )}
+
       {/* Tabs exclusivas para Mecánico: Mis órdenes vs Sin asignar */}
       {user?.role === 'mechanic' && (
         <div className="flex gap-2">

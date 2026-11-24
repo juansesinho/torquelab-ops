@@ -7,12 +7,14 @@ import {
 } from '../../errors/AppError';
 import { AuthPayload, UserRole } from '../../middlewares/auth';
 import { authRepository } from '../auth/auth.repository';
+import { notificationsRepository } from '../notifications/notifications.repository';
 import { vehiclesRepository } from '../vehicles/vehicles.repository';
 import { ordersRepository, WorkOrderRow } from './orders.repository';
 import {
   AddOrderItemInput,
   CreateOrderInput,
   OrderStatus,
+  RequoteOrderInput,
   UpdateOrderInput,
 } from './orders.schema';
 
@@ -167,6 +169,14 @@ export const ordersService = {
     });
 
     const created = await ordersRepository.findById(orderId);
+    if (created && created.mechanic_id) {
+      await notificationsRepository.create({
+        user_id: created.mechanic_id,
+        work_order_id: created.id,
+        title: `Nueva orden asignada — ${created.code}`,
+        message: `Se te asignó el ${created.brand} ${created.model} (${created.plate}): ${created.problem_description}`,
+      });
+    }
     return { ...created!, items: [] };
   },
 
@@ -287,6 +297,110 @@ export const ordersService = {
       await client.query(
         `UPDATE work_orders SET status = $1, updated_at = NOW() WHERE id = $2`,
         [nextStatus, orderId]
+      );
+
+      // Notificaciones automáticas por cambio de estado
+      if (nextStatus === 'quoted') {
+        await notificationsRepository.create(
+          {
+            user_id: order.client_id,
+            work_order_id: order.id,
+            title: `Presupuesto listo — ${order.code}`,
+            message: `El taller presupuestó tu ${order.brand} ${order.model} (${order.plate}). Revisalo para aprobar o rechazar.`,
+          },
+          client
+        );
+      } else if (nextStatus === 'approved' && order.mechanic_id) {
+        await notificationsRepository.create(
+          {
+            user_id: order.mechanic_id,
+            work_order_id: order.id,
+            title: `Presupuesto aprobado — ${order.code}`,
+            message: `${order.client_name} aprobó el presupuesto de ${order.plate}. Ya podés iniciar la reparación.`,
+          },
+          client
+        );
+      } else if (nextStatus === 'cancelled' && order.mechanic_id && user.role === 'client') {
+        await notificationsRepository.create(
+          {
+            user_id: order.mechanic_id,
+            work_order_id: order.id,
+            title: `Presupuesto rechazado — ${order.code}`,
+            message: `${order.client_name} rechazó el presupuesto de ${order.plate}. El stock fue devuelto al inventario.`,
+          },
+          client
+        );
+      } else if (nextStatus === 'completed') {
+        await notificationsRepository.create(
+          {
+            user_id: order.client_id,
+            work_order_id: order.id,
+            title: `Vehículo listo para retirar — ${order.code}`,
+            message: `Finalizamos la reparación de tu ${order.brand} ${order.model} (${order.plate}).`,
+          },
+          client
+        );
+      }
+    });
+
+    return this.getOrderDetail(orderId, user);
+  },
+
+  async requoteOrder(orderId: number, input: RequoteOrderInput, user: AuthPayload) {
+    await withTransaction(async (client) => {
+      const lockRes = await client.query<{ id: number }>(
+        `SELECT id FROM work_orders WHERE id = $1 FOR UPDATE`,
+        [orderId]
+      );
+      if (lockRes.rowCount === 0) {
+        throw new NotFoundError('Orden de trabajo no encontrada');
+      }
+
+      const order = await ordersRepository.findById(orderId, client);
+      if (!order) {
+        throw new NotFoundError('Orden de trabajo no encontrada');
+      }
+      if (user.role === 'mechanic' && order.mechanic_id !== user.userId) {
+        throw new ForbiddenError('Solo podés represupuestar órdenes asignadas a tu usuario');
+      }
+      if (!['quoted', 'approved', 'in_progress'].includes(order.status)) {
+        throw new ConflictError(
+          `Solo se puede represupuestar una orden en estado 'quoted', 'approved' o 'in_progress'`
+        );
+      }
+
+      const nextDiagnosis =
+        input.diagnosis !== undefined ? input.diagnosis : order.diagnosis;
+      if (!nextDiagnosis || nextDiagnosis.trim().length === 0) {
+        throw new BadRequestError('El diagnóstico no puede quedar vacío al represupuestar');
+      }
+
+      const nextLabor =
+        input.labor_cost !== undefined ? input.labor_cost : Number(order.labor_cost);
+      const nextVersion = (order.quote_version ?? 1) + 1;
+
+      await client.query(
+        `UPDATE work_orders
+         SET diagnosis = $1,
+             labor_cost = $2,
+             status = 'quoted',
+             quote_version = $3,
+             requote_reason = $4,
+             updated_at = NOW()
+         WHERE id = $5`,
+        [nextDiagnosis, nextLabor, nextVersion, input.reason, orderId]
+      );
+
+      const newTotal = await ordersRepository.recalculateTotal(orderId, client);
+
+      await notificationsRepository.create(
+        {
+          user_id: order.client_id,
+          work_order_id: order.id,
+          title: `Nuevo Presupuesto v${nextVersion} — ${order.code}`,
+          message: `Se actualizó el presupuesto de ${order.plate} ($${newTotal}). Motivo: ${input.reason}`,
+        },
+        client
       );
     });
 

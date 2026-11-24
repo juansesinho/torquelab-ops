@@ -41,6 +41,15 @@ export const ordersController = {
     res.status(200).json({ order });
   },
 
+  async requote(req: Request, res: Response) {
+    const order = await ordersService.requoteOrder(
+      Number(req.params.id),
+      req.body,
+      req.user!
+    );
+    res.status(200).json({ order });
+  },
+
   async addItem(req: Request, res: Response) {
     const order = await ordersService.addItem(Number(req.params.id), req.body, req.user!);
     res.status(200).json({ order });

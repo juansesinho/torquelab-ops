@@ -33,14 +33,23 @@ export const authRepository = {
     return res.rows[0] ?? null;
   },
 
-  async createClient(name: string, email: string, passwordHash: string): Promise<PublicUser> {
+  async createUser(
+    name: string,
+    email: string,
+    passwordHash: string,
+    role: UserRole = 'client'
+  ): Promise<PublicUser> {
     const res = await pool.query<PublicUser>(
       `INSERT INTO users (name, email, password_hash, role)
-       VALUES ($1, $2, $3, 'client')
+       VALUES ($1, $2, $3, $4)
        RETURNING id, name, email, role, created_at`,
-      [name, email, passwordHash]
+      [name, email, passwordHash, role]
     );
     return res.rows[0];
+  },
+
+  async createClient(name: string, email: string, passwordHash: string): Promise<PublicUser> {
+    return this.createUser(name, email, passwordHash, 'client');
   },
 
   async listByRole(role: UserRole): Promise<Array<Pick<PublicUser, 'id' | 'name' | 'email' | 'role'>>> {

@@ -51,6 +51,8 @@ CREATE TABLE IF NOT EXISTS work_orders (
   diagnosis TEXT,
   labor_cost NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (labor_cost >= 0),
   total_cost NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (total_cost >= 0),
+  quote_version INTEGER NOT NULL DEFAULT 1 CHECK (quote_version >= 1),
+  requote_reason TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -75,3 +77,30 @@ CREATE TABLE IF NOT EXISTS work_order_items (
 
 CREATE INDEX IF NOT EXISTS idx_work_order_items_order_id ON work_order_items(work_order_id);
 CREATE INDEX IF NOT EXISTS idx_work_order_items_part_id ON work_order_items(part_id);
+
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  part_id INTEGER NOT NULL REFERENCES parts(id) ON DELETE RESTRICT,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  type VARCHAR(20) NOT NULL CHECK (type IN ('in', 'out', 'adjustment')),
+  quantity INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  provider VARCHAR(120),
+  unit_cost NUMERIC(12, 2) CHECK (unit_cost IS NULL OR unit_cost >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_movements_part_id ON stock_movements(part_id);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  work_order_id INTEGER REFERENCES work_orders(id) ON DELETE CASCADE,
+  title VARCHAR(140) NOT NULL,
+  message TEXT NOT NULL,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+

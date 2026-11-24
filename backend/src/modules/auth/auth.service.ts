@@ -63,6 +63,15 @@ export const authService = {
     return authRepository.listByRole('mechanic');
   },
 
+  async createMechanic(input: RegisterInput) {
+    const existing = await authRepository.findByEmail(input.email);
+    if (existing) {
+      throw new ConflictError('Ya existe una cuenta registrada con ese email');
+    }
+    const passwordHash = await bcrypt.hash(input.password, 10);
+    return authRepository.createUser(input.name, input.email, passwordHash, 'mechanic');
+  },
+
   async listClients() {
     return authRepository.listByRole('client');
   },

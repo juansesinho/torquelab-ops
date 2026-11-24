@@ -1,4 +1,13 @@
-import { DashboardSummary, OrderStatus, Part, User, Vehicle, WorkOrder } from '../types/domain';
+import {
+  DashboardSummary,
+  NotificationItem,
+  OrderStatus,
+  Part,
+  StockMovement,
+  User,
+  Vehicle,
+  WorkOrder,
+} from '../types/domain';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:4000/api';
 
@@ -65,6 +74,11 @@ export const api = {
       }),
     me: () => request<{ user: User }>('/auth/me'),
     mechanics: () => request<{ mechanics: User[] }>('/auth/mechanics'),
+    createMechanic: (payload: { name: string; email: string; password: string }) =>
+      request<{ mechanic: User }>('/auth/mechanics', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
     clients: () => request<{ clients: User[] }>('/auth/clients'),
   },
   vehicles: {
@@ -107,6 +121,22 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ quantity }),
       }),
+    listMovements: (id: number) =>
+      request<{ movements: StockMovement[] }>(`/parts/${id}/movements`),
+    registerMovement: (
+      id: number,
+      payload: {
+        type: 'in' | 'out' | 'adjustment';
+        quantity: number;
+        reason: string;
+        provider?: string | null;
+        unit_cost?: number | null;
+      }
+    ) =>
+      request<{ part: Part }>(`/parts/${id}/movements`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
   },
   orders: {
     list: (filters?: { status?: string; plate?: string; scope?: 'mine' | 'unassigned' | 'all' }) => {
@@ -148,6 +178,14 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       }),
+    requote: (
+      id: number,
+      payload: { reason: string; diagnosis?: string; labor_cost?: number }
+    ) =>
+      request<{ order: WorkOrder }>(`/orders/${id}/requote`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
     addItem: (id: number, part_id: number, quantity: number) =>
       request<{ order: WorkOrder }>(`/orders/${id}/items`, {
         method: 'POST',
@@ -160,5 +198,13 @@ export const api = {
   },
   dashboard: {
     summary: () => request<DashboardSummary>('/dashboard/summary'),
+  },
+  notifications: {
+    list: () =>
+      request<{ notifications: NotificationItem[]; unread_count: number }>('/notifications'),
+    markRead: (id: number) =>
+      request<{ ok: boolean }>(`/notifications/${id}/read`, { method: 'PATCH' }),
+    markAllRead: () =>
+      request<{ ok: boolean }>('/notifications/read-all', { method: 'PATCH' }),
   },
 };

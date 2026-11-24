@@ -52,7 +52,14 @@ export const addOrderItemSchema = z.object({
   quantity: z.coerce.number().int().positive('La cantidad debe ser mayor a 0'),
 });
 
+export const requoteOrderSchema = z.object({
+  reason: z.string().trim().min(5, 'Explicá el motivo del represupuesto (mín. 5 caracteres)').max(500),
+  diagnosis: z.string().trim().min(3).max(2000).optional(),
+  labor_cost: z.coerce.number().min(0).optional(),
+});
+
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 export type AddOrderItemInput = z.infer<typeof addOrderItemSchema>;
+export type RequoteOrderInput = z.infer<typeof requoteOrderSchema>;

@@ -22,6 +22,17 @@ export const partIdParamSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
 
+export const stockMovementSchema = z.object({
+  type: z.enum(['in', 'out', 'adjustment']),
+  quantity: z.coerce.number().int().refine((v) => v !== 0, {
+    message: 'La cantidad no puede ser 0',
+  }),
+  reason: z.string().trim().min(3, 'Indicá el motivo del movimiento').max(500),
+  provider: z.string().trim().max(120).optional().nullable(),
+  unit_cost: z.coerce.number().min(0).optional().nullable(),
+});
+
 export type CreatePartInput = z.infer<typeof createPartSchema>;
 export type UpdatePartInput = z.infer<typeof updatePartSchema>;
 export type RestockPartInput = z.infer<typeof restockPartSchema>;
+export type StockMovementInput = z.infer<typeof stockMovementSchema>;

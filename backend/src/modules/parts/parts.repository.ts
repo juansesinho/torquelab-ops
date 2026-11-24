@@ -11,6 +11,19 @@ export interface PartRow {
   created_at: Date;
 }
 
+export interface StockMovementRow {
+  id: number;
+  part_id: number;
+  user_id: number | null;
+  user_name: string | null;
+  type: 'in' | 'out' | 'adjustment';
+  quantity: number;
+  reason: string;
+  provider: string | null;
+  unit_cost: string | null;
+  created_at: Date;
+}
+
 export const partsRepository = {
   async findAll(): Promise<PartRow[]> {
     const res = await pool.query<PartRow>(
@@ -93,5 +106,28 @@ export const partsRepository = {
       [id, quantity]
     );
     return res.rows[0] ?? null;
+  },
+
+  async listMovements(partId: number): Promise<StockMovementRow[]> {
+    const res = await pool.query<StockMovementRow>(
+      `SELECT
+         sm.id,
+         sm.part_id,
+         sm.user_id,
+         u.name AS user_name,
+         sm.type,
+         sm.quantity,
+         sm.reason,
+         sm.provider,
+         sm.unit_cost,
+         sm.created_at
+       FROM stock_movements sm
+       LEFT JOIN users u ON u.id = sm.user_id
+       WHERE sm.part_id = $1
+       ORDER BY sm.created_at DESC
+       LIMIT 50`,
+      [partId]
+    );
+    return res.rows;
   },
 };

@@ -5,6 +5,7 @@ import {
   Hand,
   Plus,
   Printer,
+  RefreshCw,
   Send,
   Trash2,
   XCircle,
@@ -15,6 +16,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { FormField, Input, Select, Textarea } from '../components/ui/FormField';
+import { Modal } from '../components/ui/Modal';
 import { AlertBanner, PageHeader } from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -49,6 +51,10 @@ export function OrderDetailPage() {
   const [selectedPartId, setSelectedPartId] = useState('');
   const [partQty, setPartQty] = useState('1');
   const [addingPart, setAddingPart] = useState(false);
+
+  const [requoteOpen, setRequoteOpen] = useState(false);
+  const [requoteReason, setRequoteReason] = useState('');
+  const [requoting, setRequoting] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -195,6 +201,31 @@ export function OrderDetailPage() {
     }
   }
 
+  async function handleRequote(e: FormEvent) {
+    e.preventDefault();
+    if (!order) return;
+    setError('');
+    setFeedback('');
+    setRequoting(true);
+    try {
+      const res = await api.orders.requote(order.id, {
+        reason: requoteReason,
+        diagnosis: diagnosis.trim() || undefined,
+        labor_cost: Number(laborCost) || 0,
+      });
+      setOrder(res.order);
+      setRequoteOpen(false);
+      setRequoteReason('');
+      setFeedback(
+        `Represupuesto v${res.order.quote_version ?? 2} enviado. Se notificó al cliente para nueva aprobación.`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo represupuestar la orden');
+    } finally {
+      setRequoting(false);
+    }
+  }
+
   if (loading) return <p className="text-sm text-slate-400">Cargando detalle de orden...</p>;
   if (!order) return <AlertBanner message={error || 'Orden no encontrada'} />;
 
@@ -246,6 +277,15 @@ export function OrderDetailPage() {
 
       {error && <AlertBanner message={error} />}
       {feedback && <AlertBanner variant="success" message={feedback} />}
+
+      {order.requote_reason && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+          <strong className="font-semibold text-amber-300">
+            Presupuesto actualizado (v{order.quote_version ?? 2}):{' '}
+          </strong>
+          {order.requote_reason}
+        </div>
+      )}
 
       {/* Banner guiado de siguiente acción según rol y estado */}
       <Card className="border-orange-500/30 bg-slate-900">
@@ -345,6 +385,13 @@ export function OrderDetailPage() {
                 <CheckCircle2 className="h-4 w-4" /> Finalizar Orden
               </Button>
             )}
+
+            {canEditTechnical &&
+              ['quoted', 'approved', 'in_progress'].includes(order.status) && (
+                <Button variant="secondary" onClick={() => setRequoteOpen(true)}>
+                  <RefreshCw className="h-4 w-4" /> Represupuestar
+                </Button>
+              )}
 
             {canCancel && (
               <Button variant="danger" onClick={() => handleStatusChange('cancelled')}>
@@ -513,7 +560,9 @@ export function OrderDetailPage() {
               <span className="font-mono">{formatCurrency(liveLabor)}</span>
             </div>
             <div className="flex items-center justify-between border-t border-slate-800 pt-3">
-              <span className="font-semibold text-white">Total Presupuestado</span>
+              <span className="font-semibold text-white">
+                Total Presupuestado (v{order.quote_version ?? 1})
+              </span>
               <span className="font-mono text-2xl font-bold text-orange-400">
                 {formatCurrency(liveTotal)}
               </span>
@@ -521,6 +570,46 @@ export function OrderDetailPage() {
           </div>
         </Card>
       </div>
+
+      <Modal
+        open={requoteOpen}
+        title={`Represupuestar ${order.code}`}
+        onClose={() => setRequoteOpen(false)}
+      >
+        <form onSubmit={handleRequote} className="space-y-4">
+          <p className="text-xs text-slate-400">
+            Al represupuestar, la orden vuelve a estado <strong>Presupuestado</strong> (v
+            {(order.quote_version ?? 1) + 1}) y el cliente recibe una notificación para aprobar el nuevo monto.
+          </p>
+          <FormField label="Motivo del represupuesto (visible para el cliente)">
+            <Textarea
+              required
+              minLength={5}
+              rows={3}
+              placeholder="Ej. Al desarmar tren delantero se detectó buje de parrilla roto; se suma repuesto y ajuste."
+              value={requoteReason}
+              onChange={(e) => setRequoteReason(e.target.value)}
+            />
+          </FormField>
+          <FormField label="Mano de obra actualizada (ARS)">
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={laborCost}
+              onChange={(e) => setLaborCost(e.target.value)}
+            />
+          </FormField>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setRequoteOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" loading={requoting}>
+              Enviar Represupuesto
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { DashboardPage } from './pages/DashboardPage';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
+import { MechanicsPage } from './pages/MechanicsPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { PartsPage } from './pages/PartsPage';
@@ -79,6 +80,14 @@ export function App() {
               element={
                 <ProtectedRoute roles={['admin', 'mechanic']}>
                   <PartsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/mechanics"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <MechanicsPage />
                 </ProtectedRoute>
               }
             />

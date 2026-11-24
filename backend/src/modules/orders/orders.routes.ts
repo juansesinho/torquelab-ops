@@ -9,6 +9,7 @@ import {
   listOrdersQuerySchema,
   orderIdParamSchema,
   orderItemParamSchema,
+  requoteOrderSchema,
   updateOrderSchema,
   updateOrderStatusSchema,
 } from './orders.schema';
@@ -49,6 +50,12 @@ ordersRouter.patch(
   '/:id/status',
   validate({ params: orderIdParamSchema, body: updateOrderStatusSchema }),
   asyncHandler(ordersController.updateStatus)
+);
+ordersRouter.post(
+  '/:id/requote',
+  authorize('admin', 'mechanic'),
+  validate({ params: orderIdParamSchema, body: requoteOrderSchema }),
+  asyncHandler(ordersController.requote)
 );
 ordersRouter.post(
   '/:id/items',

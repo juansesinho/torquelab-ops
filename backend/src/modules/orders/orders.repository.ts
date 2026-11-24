@@ -19,6 +19,8 @@ export interface WorkOrderRow {
   diagnosis: string | null;
   labor_cost: string;
   total_cost: string;
+  quote_version: number;
+  requote_reason: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -84,6 +86,8 @@ export const ordersRepository = {
          wo.diagnosis,
          wo.labor_cost,
          wo.total_cost,
+         wo.quote_version,
+         wo.requote_reason,
          wo.created_at,
          wo.updated_at
        FROM work_orders wo
@@ -117,6 +121,8 @@ export const ordersRepository = {
          wo.diagnosis,
          wo.labor_cost,
          wo.total_cost,
+         wo.quote_version,
+         wo.requote_reason,
          wo.created_at,
          wo.updated_at
        FROM work_orders wo

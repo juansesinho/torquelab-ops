@@ -1,6 +1,7 @@
-import { Car, ClipboardList, LayoutDashboard, LogOut, Package } from 'lucide-react';
+import { Car, ClipboardList, LayoutDashboard, LogOut, Package, Users } from 'lucide-react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { NotificationBell } from './NotificationBell';
 import { BrandLogo } from './ui/BrandLogo';
 
 export function Layout() {
@@ -11,10 +12,13 @@ export function Layout() {
     ...(user?.role !== 'client'
       ? [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }]
       : []),
-    { to: '/orders', label: 'Órdenes', icon: ClipboardList },
-    { to: '/vehicles', label: 'Vehículos', icon: Car },
+    { to: '/orders', label: user?.role === 'client' ? 'Mis Reparaciones' : 'Órdenes', icon: ClipboardList },
+    { to: '/vehicles', label: user?.role === 'client' ? 'Mis Vehículos' : 'Vehículos', icon: Car },
     ...(user?.role !== 'client'
       ? [{ to: '/parts', label: 'Repuestos', icon: Package }]
+      : []),
+    ...(user?.role === 'admin'
+      ? [{ to: '/mechanics', label: 'Equipo', icon: Users }]
       : []),
   ];
 
@@ -26,16 +30,19 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row">
-      <aside className="w-full md:w-64 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col justify-between">
+      <aside className="w-full md:w-64 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col justify-between print:hidden">
         <div>
-          <div className="p-5 border-b border-slate-800 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-orange-500/15 border border-orange-500/40 flex items-center justify-center">
-              <BrandLogo size={24} />
-            </div>
-            <div>
-              <h1 className="font-bold tracking-tight text-white">TorqueLab Ops</h1>
-              <p className="text-xs text-slate-400">Garage S.R.L.</p>
-            </div>
+          <div className="p-5 border-b border-slate-800 flex items-center justify-between gap-2">
+            <Link to="/" className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-orange-500/15 border border-orange-500/40 flex items-center justify-center">
+                <BrandLogo size={24} />
+              </div>
+              <div>
+                <h1 className="font-bold tracking-tight text-white">TorqueLab Ops</h1>
+                <p className="text-xs text-slate-400">Garage S.R.L.</p>
+              </div>
+            </Link>
+            <NotificationBell />
           </div>
 
           <nav className="p-3 flex md:flex-col gap-1 overflow-x-auto">

@@ -1,14 +1,14 @@
-import { AlertTriangle, PackagePlus, Pencil, Plus, Search } from 'lucide-react';
+import { AlertTriangle, ArrowDownUp, History, Pencil, Plus, Search } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { FormField, Input } from '../components/ui/FormField';
+import { FormField, Input, Select, Textarea } from '../components/ui/FormField';
 import { Modal } from '../components/ui/Modal';
 import { AlertBanner, PageHeader } from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { Part } from '../types/domain';
-import { formatCurrency } from '../utils/format';
+import { Part, StockMovement } from '../types/domain';
+import { formatCurrency, formatDate } from '../utils/format';
 
 export function PartsPage() {
   const { user } = useAuth();
@@ -32,8 +32,16 @@ export function PartsPage() {
   const [editMinStock, setEditMinStock] = useState('5');
   const [editPrice, setEditPrice] = useState('');
 
-  const [restockTarget, setRestockTarget] = useState<Part | null>(null);
-  const [restockQty, setRestockQty] = useState('5');
+  const [moveTarget, setMoveTarget] = useState<Part | null>(null);
+  const [moveType, setMoveType] = useState<'in' | 'out' | 'adjustment'>('in');
+  const [moveQty, setMoveQty] = useState('5');
+  const [moveReason, setMoveReason] = useState('');
+  const [moveProvider, setMoveProvider] = useState('');
+  const [moveCost, setMoveCost] = useState('');
+
+  const [historyTarget, setHistoryTarget] = useState<Part | null>(null);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const loadParts = useCallback(async () => {
     setLoading(true);
@@ -104,20 +112,48 @@ export function PartsPage() {
     }
   }
 
-  async function handleRestock(e: FormEvent) {
+  function openMovement(part: Part) {
+    setFormError('');
+    setMoveTarget(part);
+    setMoveType('in');
+    setMoveQty('5');
+    setMoveReason('');
+    setMoveProvider('');
+    setMoveCost('');
+  }
+
+  async function handleMovement(e: FormEvent) {
     e.preventDefault();
-    if (!restockTarget) return;
+    if (!moveTarget) return;
     setFormError('');
     setSaving(true);
     try {
-      await api.parts.restock(restockTarget.id, Number(restockQty));
-      setRestockTarget(null);
-      setRestockQty('5');
+      await api.parts.registerMovement(moveTarget.id, {
+        type: moveType,
+        quantity: Number(moveQty),
+        reason: moveReason,
+        provider: moveType === 'in' && moveProvider.trim() ? moveProvider.trim() : null,
+        unit_cost: moveType === 'in' && moveCost ? Number(moveCost) : null,
+      });
+      setMoveTarget(null);
       await loadParts();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Error al reponer stock');
+      setFormError(err instanceof Error ? err.message : 'Error al registrar movimiento');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function openHistory(part: Part) {
+    setHistoryTarget(part);
+    setLoadingHistory(true);
+    try {
+      const res = await api.parts.listMovements(part.id);
+      setMovements(res.movements);
+    } catch {
+      setMovements([]);
+    } finally {
+      setLoadingHistory(false);
     }
   }
 
@@ -128,11 +164,17 @@ export function PartsPage() {
     return p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q);
   });
 
+  const typeLabel: Record<StockMovement['type'], string> = {
+    in: 'Ingreso Proveedor',
+    out: 'Egreso / Merma',
+    adjustment: 'Ajuste Inventario',
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Inventario de Repuestos"
-        subtitle="Control de stock en tiempo real, edición de precios y reposición."
+        subtitle="Gestión de stock con ingresos de proveedores, egresos/mermas, ajustes y kardex auditable."
         action={
           user?.role === 'admin' && (
             <Button onClick={() => setCreateOpen(true)}>
@@ -175,7 +217,7 @@ export function PartsPage() {
                 <th className="px-4 py-3 text-right">Stock</th>
                 <th className="px-4 py-3 text-right">Mínimo</th>
                 <th className="px-4 py-3 text-right">Precio Unit.</th>
-                {user?.role === 'admin' && <th className="px-4 py-3 text-right">Acciones</th>}
+                <th className="px-4 py-3 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -204,30 +246,36 @@ export function PartsPage() {
                   <td className="px-4 py-3.5 text-right font-mono text-white">
                     {formatCurrency(part.unit_price)}
                   </td>
-                  {user?.role === 'admin' && (
-                    <td className="px-4 py-3.5 text-right">
-                      <div className="inline-flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(part)}
-                          title="Editar precio o mínimo"
-                        >
-                          <Pencil className="h-3.5 w-3.5" /> Editar
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            setFormError('');
-                            setRestockTarget(part);
-                          }}
-                        >
-                          <PackagePlus className="h-3.5 w-3.5" /> Reponer
-                        </Button>
-                      </div>
-                    </td>
-                  )}
+                  <td className="px-4 py-3.5 text-right">
+                    <div className="inline-flex gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openHistory(part)}
+                        title="Ver historial de movimientos (Kardex)"
+                      >
+                        <History className="h-3.5 w-3.5" /> Kardex
+                      </Button>
+                      {user?.role === 'admin' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEdit(part)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Editar
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => openMovement(part)}
+                          >
+                            <ArrowDownUp className="h-3.5 w-3.5" /> Mover Stock
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -235,6 +283,7 @@ export function PartsPage() {
         </div>
       )}
 
+      {/* Modal Alta */}
       <Modal open={createOpen} title="Alta de Repuesto" onClose={() => setCreateOpen(false)}>
         <form onSubmit={handleCreate} className="space-y-4">
           {formError && <AlertBanner message={formError} />}
@@ -252,7 +301,7 @@ export function PartsPage() {
               <Input type="number" min={0} required value={minStock} onChange={(e) => setMinStock(e.target.value)} />
             </FormField>
           </div>
-          <FormField label="Precio unitario (ARS)">
+          <FormField label="Precio unitario de venta (ARS)">
             <Input type="number" min={0} step="0.01" required value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
           </FormField>
           <div className="flex justify-end gap-2 pt-2">
@@ -262,6 +311,7 @@ export function PartsPage() {
         </form>
       </Modal>
 
+      {/* Modal Edición */}
       <Modal
         open={Boolean(editTarget)}
         title={`Editar Repuesto — ${editTarget?.sku ?? ''}`}
@@ -290,27 +340,132 @@ export function PartsPage() {
         </form>
       </Modal>
 
+      {/* Modal Movimiento Completo de Stock */}
       <Modal
-        open={Boolean(restockTarget)}
-        title={`Reponer Stock — ${restockTarget?.name ?? ''}`}
-        onClose={() => setRestockTarget(null)}
+        open={Boolean(moveTarget)}
+        title={`Movimiento de Stock — ${moveTarget?.name ?? ''}`}
+        onClose={() => setMoveTarget(null)}
       >
-        <form onSubmit={handleRestock} className="space-y-4">
+        <form onSubmit={handleMovement} className="space-y-4">
           {formError && <AlertBanner message={formError} />}
-          <FormField label="Cantidad a ingresar">
+          <p className="text-xs text-slate-400">
+            Stock actual: <strong className="font-mono text-white">{moveTarget?.stock}</strong> unidades
+          </p>
+
+          <FormField label="Tipo de movimiento">
+            <Select
+              value={moveType}
+              onChange={(e) => setMoveType(e.target.value as 'in' | 'out' | 'adjustment')}
+            >
+              <option value="in">Ingreso de Proveedor (+)</option>
+              <option value="out">Egreso / Merma / Devolución (-)</option>
+              <option value="adjustment">Ajuste de Inventario (+/-)</option>
+            </Select>
+          </FormField>
+
+          <FormField
+            label={
+              moveType === 'adjustment'
+                ? 'Diferencia (positivo suma, negativo resta)'
+                : 'Cantidad de unidades'
+            }
+          >
             <Input
               type="number"
-              min={1}
               required
-              value={restockQty}
-              onChange={(e) => setRestockQty(e.target.value)}
+              min={moveType === 'adjustment' ? undefined : 1}
+              value={moveQty}
+              onChange={(e) => setMoveQty(e.target.value)}
             />
           </FormField>
+
+          {moveType === 'in' && (
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Proveedor (opcional)">
+                <Input
+                  placeholder="Ej. Bosch Distribuidora"
+                  value={moveProvider}
+                  onChange={(e) => setMoveProvider(e.target.value)}
+                />
+              </FormField>
+              <FormField label="Costo unitario (opcional)">
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="32000"
+                  value={moveCost}
+                  onChange={(e) => setMoveCost(e.target.value)}
+                />
+              </FormField>
+            </div>
+          )}
+
+          <FormField label="Motivo / Comprobante (obligatorio)">
+            <Textarea
+              required
+              minLength={3}
+              rows={2}
+              placeholder={
+                moveType === 'in'
+                  ? 'Ej. Remito #4521 reposición mensual'
+                  : moveType === 'out'
+                    ? 'Ej. Pieza dañada en depósito'
+                    : 'Ej. Conteo físico de inventario'
+              }
+              value={moveReason}
+              onChange={(e) => setMoveReason(e.target.value)}
+            />
+          </FormField>
+
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setRestockTarget(null)}>Cancelar</Button>
-            <Button type="submit" loading={saving}>Confirmar Reposición</Button>
+            <Button type="button" variant="secondary" onClick={() => setMoveTarget(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" loading={saving}>
+              Registrar Movimiento
+            </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal Kardex / Historial */}
+      <Modal
+        open={Boolean(historyTarget)}
+        title={`Kardex — ${historyTarget?.name ?? ''}`}
+        onClose={() => setHistoryTarget(null)}
+      >
+        {loadingHistory ? (
+          <p className="text-sm text-slate-400">Cargando historial...</p>
+        ) : movements.length === 0 ? (
+          <p className="text-sm text-slate-400">
+            Todavía no hay movimientos manuales registrados para este repuesto.
+          </p>
+        ) : (
+          <div className="max-h-80 overflow-y-auto divide-y divide-slate-800">
+            {movements.map((m) => (
+              <div key={m.id} className="py-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-white">{typeLabel[m.type]}</span>
+                  <span
+                    className={`font-mono font-bold ${
+                      m.quantity > 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {m.quantity > 0 ? `+${m.quantity}` : m.quantity} u.
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-300">{m.reason}</p>
+                <div className="mt-1 flex flex-wrap gap-3 font-mono text-[11px] text-slate-500">
+                  <span>{formatDate(m.created_at)}</span>
+                  {m.user_name && <span>Por: {m.user_name}</span>}
+                  {m.provider && <span>Prov: {m.provider}</span>}
+                  {m.unit_cost && <span>Costo: {formatCurrency(m.unit_cost)}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Modal>
     </div>
   );

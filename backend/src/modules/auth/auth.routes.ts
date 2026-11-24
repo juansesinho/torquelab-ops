@@ -11,4 +11,11 @@ authRouter.post('/register', validate({ body: registerSchema }), asyncHandler(au
 authRouter.post('/login', validate({ body: loginSchema }), asyncHandler(authController.login));
 authRouter.get('/me', authenticate, asyncHandler(authController.me));
 authRouter.get('/mechanics', authenticate, authorize('admin', 'mechanic'), asyncHandler(authController.listMechanics));
+authRouter.post(
+  '/mechanics',
+  authenticate,
+  authorize('admin'),
+  validate({ body: registerSchema }),
+  asyncHandler(authController.createMechanic)
+);
 authRouter.get('/clients', authenticate, authorize('admin'), asyncHandler(authController.listClients));

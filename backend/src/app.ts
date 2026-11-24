@@ -5,6 +5,7 @@ import { env } from './config/env';
 import { errorHandler } from './middlewares/errorHandler';
 import { authRouter } from './modules/auth/auth.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
+import { notificationsRouter } from './modules/notifications/notifications.routes';
 import { ordersRouter } from './modules/orders/orders.routes';
 import { partsRouter } from './modules/parts/parts.routes';
 import { vehiclesRouter } from './modules/vehicles/vehicles.routes';
@@ -44,6 +45,7 @@ export function createApp() {
   app.use('/api/parts', partsRouter);
   app.use('/api/orders', ordersRouter);
   app.use('/api/dashboard', dashboardRouter);
+  app.use('/api/notifications', notificationsRouter);
 
   app.use((_req, res) => {
     res.status(404).json({

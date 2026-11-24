@@ -34,6 +34,12 @@ vi.mock('../auth/auth.repository', () => ({
   },
 }));
 
+vi.mock('../notifications/notifications.repository', () => ({
+  notificationsRepository: {
+    create: vi.fn(),
+  },
+}));
+
 vi.mock('./orders.repository', () => ({
   ordersRepository: {
     findAll: vi.fn(),

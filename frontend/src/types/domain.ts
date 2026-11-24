@@ -69,9 +69,34 @@ export interface WorkOrder {
   diagnosis: string | null;
   labor_cost: string;
   total_cost: string;
+  quote_version?: number;
+  requote_reason?: string | null;
   created_at: string;
   updated_at: string;
   items?: WorkOrderItem[];
+}
+
+export interface NotificationItem {
+  id: number;
+  user_id: number;
+  work_order_id: number | null;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface StockMovement {
+  id: number;
+  part_id: number;
+  user_id: number | null;
+  user_name: string | null;
+  type: 'in' | 'out' | 'adjustment';
+  quantity: number;
+  reason: string;
+  provider: string | null;
+  unit_cost: string | null;
+  created_at: string;
 }
 
 export interface DashboardSummary {

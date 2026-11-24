@@ -22,6 +22,11 @@ export const authController = {
     res.status(200).json({ mechanics });
   },
 
+  async createMechanic(req: Request, res: Response) {
+    const mechanic = await authService.createMechanic(req.body);
+    res.status(201).json({ mechanic });
+  },
+
   async listClients(_req: Request, res: Response) {
     const clients = await authService.listClients();
     res.status(200).json({ clients });

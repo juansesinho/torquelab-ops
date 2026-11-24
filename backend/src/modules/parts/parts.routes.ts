@@ -7,6 +7,7 @@ import {
   createPartSchema,
   partIdParamSchema,
   restockPartSchema,
+  stockMovementSchema,
   updatePartSchema,
 } from './parts.schema';
 
@@ -32,4 +33,16 @@ partsRouter.patch(
   authorize('admin'),
   validate({ params: partIdParamSchema, body: restockPartSchema }),
   asyncHandler(partsController.restock)
+);
+partsRouter.get(
+  '/:id/movements',
+  authorize('admin', 'mechanic'),
+  validate({ params: partIdParamSchema }),
+  asyncHandler(partsController.listMovements)
+);
+partsRouter.post(
+  '/:id/movements',
+  authorize('admin'),
+  validate({ params: partIdParamSchema, body: stockMovementSchema }),
+  asyncHandler(partsController.registerMovement)
 );

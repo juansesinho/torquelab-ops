@@ -23,4 +23,16 @@ export const partsController = {
     const part = await partsService.restockPart(id, req.body.quantity);
     res.status(200).json({ part });
   },
+
+  async registerMovement(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    const part = await partsService.registerMovement(id, req.user!.userId, req.body);
+    res.status(201).json({ part });
+  },
+
+  async listMovements(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    const movements = await partsService.listMovements(id);
+    res.status(200).json({ movements });
+  },
 };
