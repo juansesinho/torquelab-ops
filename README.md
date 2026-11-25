@@ -29,7 +29,7 @@ Contraseña para todas las cuentas de prueba: **`Demo1234!`**
 * **Backend:** Node.js + Express + TypeScript + Zod + JWT (`backend/`), organizado en arquitectura limpia por capas:
   `routes` → `controllers` → `services` (reglas de negocio) → `repositories` (SQL).
 * **Base de Datos:** PostgreSQL en **Neon** (`backend/src/db/schema.sql` + `seed.ts`).
-* **Documentación:** [spec.md](./spec.md) · [design.md](./design.md) · [qa.md](./qa.md).
+* **Documentación:** [spec.md](./spec.md) · [design.md](./design.md) · [qa.md](./qa.md) · [DEPLOY.md](./DEPLOY.md).
 
 ---
 
