@@ -1,8 +1,8 @@
-import { BadRequestError, ConflictError, ForbiddenError } from '../../errors/AppError';
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../errors/AppError';
 import { AuthPayload } from '../../middlewares/auth';
 import { authRepository } from '../auth/auth.repository';
 import { vehiclesRepository } from './vehicles.repository';
-import { CreateVehicleInput } from './vehicles.schema';
+import { CreateVehicleInput, UpdateVehicleInput } from './vehicles.schema';
 
 export const vehiclesService = {
   async listVehicles(user: AuthPayload) {
@@ -41,5 +41,43 @@ export const vehiclesService = {
       year: input.year,
       mileage: input.mileage ?? null,
     });
+  },
+
+  async updateVehicle(id: number, input: UpdateVehicleInput, user: AuthPayload) {
+    const existing = await vehiclesRepository.findById(id);
+    if (!existing) {
+      throw new NotFoundError('Vehículo no encontrado');
+    }
+    if (user.role === 'client' && existing.client_id !== user.userId) {
+      throw new ForbiddenError('Solo podés editar tus propios vehículos');
+    }
+    if (user.role === 'mechanic') {
+      throw new ForbiddenError('Solo administradores o clientes pueden editar vehículos');
+    }
+
+    if (input.plate && input.plate !== existing.plate) {
+      const dup = await vehiclesRepository.findByPlate(input.plate);
+      if (dup) {
+        throw new ConflictError(`Ya existe un vehículo registrado con la patente ${input.plate}`);
+      }
+    }
+
+    const updated = await vehiclesRepository.update(id, input);
+    if (!updated) {
+      throw new NotFoundError('Vehículo no encontrado');
+    }
+    return updated;
+  },
+
+  async getVehicleHistory(id: number, user: AuthPayload) {
+    const vehicle = await vehiclesRepository.findById(id);
+    if (!vehicle) {
+      throw new NotFoundError('Vehículo no encontrado');
+    }
+    if (user.role === 'client' && vehicle.client_id !== user.userId) {
+      throw new ForbiddenError('No tenés permisos para ver el historial de este vehículo');
+    }
+    const orders = await vehiclesRepository.findOrdersByVehicleId(id);
+    return { vehicle, orders };
   },
 };

@@ -95,6 +95,34 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
+    update: (
+      id: number,
+      payload: {
+        plate?: string;
+        brand?: string;
+        model?: string;
+        year?: number;
+        mileage?: number | null;
+      }
+    ) =>
+      request<{ vehicle: Vehicle }>(`/vehicles/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      }),
+    history: (id: number) =>
+      request<{
+        vehicle: Vehicle;
+        orders: Array<{
+          id: number;
+          code: string;
+          status: OrderStatus;
+          problem_description: string;
+          diagnosis: string | null;
+          total_cost: string;
+          created_at: string;
+          mechanic_name: string | null;
+        }>;
+      }>(`/vehicles/${id}/orders`),
   },
   parts: {
     list: () => request<{ parts: Part[] }>('/parts'),

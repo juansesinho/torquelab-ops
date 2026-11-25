@@ -101,4 +101,55 @@ export const vehiclesRepository = {
     const created = await this.findById(insertRes.rows[0].id);
     return created!;
   },
+
+  async update(
+    id: number,
+    data: {
+      plate?: string;
+      brand?: string;
+      model?: string;
+      year?: number;
+      mileage?: number | null;
+    }
+  ): Promise<VehicleRow | null> {
+    await pool.query(
+      `UPDATE vehicles
+       SET plate = COALESCE($2, plate),
+           brand = COALESCE($3, brand),
+           model = COALESCE($4, model),
+           year = COALESCE($5, year),
+           mileage = CASE WHEN $6::boolean THEN $7 ELSE mileage END
+       WHERE id = $1`,
+      [
+        id,
+        data.plate ?? null,
+        data.brand ?? null,
+        data.model ?? null,
+        data.year ?? null,
+        data.mileage !== undefined,
+        data.mileage ?? null,
+      ]
+    );
+    return this.findById(id);
+  },
+
+  async findOrdersByVehicleId(vehicleId: number) {
+    const res = await pool.query(
+      `SELECT
+         wo.id,
+         wo.code,
+         wo.status,
+         wo.problem_description,
+         wo.diagnosis,
+         wo.total_cost,
+         wo.created_at,
+         mu.name AS mechanic_name
+       FROM work_orders wo
+       LEFT JOIN users mu ON mu.id = wo.mechanic_id
+       WHERE wo.vehicle_id = $1
+       ORDER BY wo.created_at DESC`,
+      [vehicleId]
+    );
+    return res.rows;
+  },
 };

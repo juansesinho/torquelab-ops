@@ -1,4 +1,4 @@
-import { ArrowRight, Plus, Search, Wrench } from 'lucide-react';
+import { ArrowRight, History, Pencil, Plus, Search, Wrench } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { StatusBadge } from '../components/StatusBadge';
@@ -8,11 +8,25 @@ import { FormField, Input, Select } from '../components/ui/FormField';
 import { Modal } from '../components/ui/Modal';
 import { AlertBanner, EmptyState, PageHeader } from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
-import { User, Vehicle } from '../types/domain';
+import { OrderStatus, User, Vehicle } from '../types/domain';
+import { formatCurrency, formatDate } from '../utils/format';
+
+interface HistoryOrder {
+  id: number;
+  code: string;
+  status: OrderStatus;
+  problem_description: string;
+  diagnosis: string | null;
+  total_cost: string;
+  created_at: string;
+  mechanic_name: string | null;
+}
 
 export function VehiclesPage() {
   const { user } = useAuth();
+  const { notify } = useToast();
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [clients, setClients] = useState<User[]>([]);
@@ -29,6 +43,17 @@ export function VehiclesPage() {
   const [mileage, setMileage] = useState('');
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const [editTarget, setEditTarget] = useState<Vehicle | null>(null);
+  const [editPlate, setEditPlate] = useState('');
+  const [editBrand, setEditBrand] = useState('');
+  const [editModel, setEditModel] = useState('');
+  const [editYear, setEditYear] = useState('2022');
+  const [editMileage, setEditMileage] = useState('');
+
+  const [historyVehicle, setHistoryVehicle] = useState<Vehicle | null>(null);
+  const [historyOrders, setHistoryOrders] = useState<HistoryOrder[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const loadVehicles = useCallback(async () => {
     setLoading(true);
@@ -68,11 +93,58 @@ export function VehiclesPage() {
       setBrand('');
       setModel('');
       setMileage('');
+      notify('Vehículo registrado correctamente');
       await loadVehicles();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Error al registrar vehículo');
     } finally {
       setSaving(false);
+    }
+  }
+
+  function openEdit(v: Vehicle) {
+    setFormError('');
+    setEditTarget(v);
+    setEditPlate(v.plate);
+    setEditBrand(v.brand);
+    setEditModel(v.model);
+    setEditYear(String(v.year));
+    setEditMileage(v.mileage != null ? String(v.mileage) : '');
+  }
+
+  async function handleEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    setFormError('');
+    setSaving(true);
+    try {
+      await api.vehicles.update(editTarget.id, {
+        plate: editPlate,
+        brand: editBrand,
+        model: editModel,
+        year: Number(editYear),
+        mileage: editMileage ? Number(editMileage) : null,
+      });
+      setEditTarget(null);
+      notify('Datos del vehículo actualizados');
+      await loadVehicles();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Error al actualizar vehículo');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function openHistory(v: Vehicle) {
+    setHistoryVehicle(v);
+    setLoadingHistory(true);
+    try {
+      const res = await api.vehicles.history(v.id);
+      setHistoryOrders(res.orders);
+    } catch {
+      setHistoryOrders([]);
+    } finally {
+      setLoadingHistory(false);
     }
   }
 
@@ -87,13 +159,15 @@ export function VehiclesPage() {
     );
   });
 
+  const canModify = user?.role === 'admin' || user?.role === 'client';
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Vehículos"
-        subtitle="Flota registrada, estado actual y acceso directo a órdenes."
+        subtitle="Flota registrada, kilometraje, historial de órdenes y edición rápida."
         action={
-          (user?.role === 'admin' || user?.role === 'client') && (
+          canModify && (
             <Button onClick={() => setModalOpen(true)}>
               <Plus className="h-4 w-4" /> Registrar Vehículo
             </Button>
@@ -127,11 +201,31 @@ export function VehiclesPage() {
           {filtered.map((v) => (
             <Card key={v.id} className="flex flex-col justify-between gap-4">
               <div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="rounded-md border border-slate-700 bg-slate-950 px-2.5 py-1 font-mono text-xs font-bold text-orange-400">
                     {v.plate}
                   </span>
-                  <span className="font-mono text-xs text-slate-400">{v.year}</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openHistory(v)}
+                      title="Ver historial de órdenes"
+                      className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                    >
+                      <History className="h-3.5 w-3.5" />
+                    </button>
+                    {canModify && (
+                      <button
+                        type="button"
+                        onClick={() => openEdit(v)}
+                        title="Editar vehículo"
+                        className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <span className="ml-1 font-mono text-xs text-slate-400">{v.year}</span>
+                  </div>
                 </div>
                 <h3 className="mt-3 text-lg font-semibold text-white">
                   {v.brand} {v.model}
@@ -166,7 +260,14 @@ export function VehiclesPage() {
                     <Wrench className="h-3.5 w-3.5" /> Abrir Orden de Trabajo
                   </Button>
                 ) : (
-                  <span className="text-xs text-slate-500">Sin orden activa en taller</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => openHistory(v)}
+                  >
+                    <History className="h-3.5 w-3.5" /> Ver Historial de Services
+                  </Button>
                 )}
               </div>
             </Card>
@@ -174,6 +275,7 @@ export function VehiclesPage() {
         </div>
       )}
 
+      {/* Modal Alta */}
       <Modal open={modalOpen} title="Registrar Vehículo" onClose={() => setModalOpen(false)}>
         <form onSubmit={handleCreate} className="space-y-4">
           {formError && <AlertBanner message={formError} />}
@@ -202,42 +304,19 @@ export function VehiclesPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Marca">
-              <Input
-                required
-                placeholder="Toyota"
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-              />
+              <Input required placeholder="Toyota" value={brand} onChange={(e) => setBrand(e.target.value)} />
             </FormField>
             <FormField label="Modelo">
-              <Input
-                required
-                placeholder="Corolla"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              />
+              <Input required placeholder="Corolla" value={model} onChange={(e) => setModel(e.target.value)} />
             </FormField>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Año">
-              <Input
-                type="number"
-                min={1950}
-                max={2100}
-                required
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-              />
+              <Input type="number" min={1950} max={2100} required value={year} onChange={(e) => setYear(e.target.value)} />
             </FormField>
             <FormField label="Kilometraje (opcional)">
-              <Input
-                type="number"
-                min={0}
-                placeholder="Ej. 65000"
-                value={mileage}
-                onChange={(e) => setMileage(e.target.value)}
-              />
+              <Input type="number" min={0} placeholder="Ej. 65000" value={mileage} onChange={(e) => setMileage(e.target.value)} />
             </FormField>
           </div>
 
@@ -250,6 +329,85 @@ export function VehiclesPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal Edición */}
+      <Modal
+        open={Boolean(editTarget)}
+        title={`Editar Vehículo — ${editTarget?.plate ?? ''}`}
+        onClose={() => setEditTarget(null)}
+      >
+        <form onSubmit={handleEdit} className="space-y-4">
+          {formError && <AlertBanner message={formError} />}
+          <FormField label="Patente">
+            <Input required value={editPlate} onChange={(e) => setEditPlate(e.target.value)} />
+          </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Marca">
+              <Input required value={editBrand} onChange={(e) => setEditBrand(e.target.value)} />
+            </FormField>
+            <FormField label="Modelo">
+              <Input required value={editModel} onChange={(e) => setEditModel(e.target.value)} />
+            </FormField>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Año">
+              <Input type="number" min={1950} max={2100} required value={editYear} onChange={(e) => setEditYear(e.target.value)} />
+            </FormField>
+            <FormField label="Kilometraje">
+              <Input type="number" min={0} placeholder="65000" value={editMileage} onChange={(e) => setEditMileage(e.target.value)} />
+            </FormField>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setEditTarget(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" loading={saving}>
+              Guardar Cambios
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Historial de Órdenes */}
+      <Modal
+        open={Boolean(historyVehicle)}
+        title={`Historial — ${historyVehicle?.brand ?? ''} ${historyVehicle?.model ?? ''} (${historyVehicle?.plate ?? ''})`}
+        onClose={() => setHistoryVehicle(null)}
+      >
+        {loadingHistory ? (
+          <p className="text-sm text-slate-400">Cargando historial...</p>
+        ) : historyOrders.length === 0 ? (
+          <p className="text-sm text-slate-400">Este vehículo aún no tiene órdenes registradas.</p>
+        ) : (
+          <div className="max-h-80 overflow-y-auto divide-y divide-slate-800">
+            {historyOrders.map((ord) => (
+              <div key={ord.id} className="py-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <Link
+                    to={`/orders/${ord.id}`}
+                    onClick={() => setHistoryVehicle(null)}
+                    className="font-mono font-semibold text-orange-400 hover:underline"
+                  >
+                    {ord.code}
+                  </Link>
+                  <StatusBadge status={ord.status} />
+                </div>
+                <p className="mt-1 text-xs text-slate-300">{ord.problem_description}</p>
+                {ord.diagnosis && (
+                  <p className="mt-0.5 text-xs text-slate-400">Diagnóstico: {ord.diagnosis}</p>
+                )}
+                <div className="mt-1.5 flex items-center justify-between font-mono text-[11px] text-slate-500">
+                  <span>
+                    {formatDate(ord.created_at)}
+                    {ord.mechanic_name ? ` · Mec: ${ord.mechanic_name}` : ''}
+                  </span>
+                  <span className="font-semibold text-white">{formatCurrency(ord.total_cost)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -1,13 +1,15 @@
-import { Car, ClipboardList, HelpCircle, LayoutDashboard, LogOut, Package, Users } from 'lucide-react';
+import { Car, ClipboardList, HelpCircle, LayoutDashboard, LogOut, Moon, Package, Sun, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { NotificationBell } from './NotificationBell';
 import { OnboardingTour } from './OnboardingTour';
 import { BrandLogo } from './ui/BrandLogo';
 
 export function Layout() {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [tourOpen, setTourOpen] = useState(false);
 
@@ -70,15 +72,32 @@ export function Layout() {
           </nav>
         </div>
 
-        <div className="p-4 border-t border-slate-800 space-y-3">
-          <button
-            type="button"
-            onClick={() => setTourOpen(true)}
-            className="w-full flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-300 hover:border-orange-500/40 hover:text-white transition cursor-pointer"
-          >
-            <HelpCircle className="h-3.5 w-3.5 text-orange-400" />
-            Guía de uso interactiva
-          </button>
+        <div className="p-4 border-t border-slate-800 space-y-2.5">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setTourOpen(true)}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-2 text-xs font-medium text-slate-300 hover:border-orange-500/40 hover:text-white transition cursor-pointer"
+            >
+              <HelpCircle className="h-3.5 w-3.5 text-orange-400" />
+              Guía
+            </button>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-2 text-xs font-medium text-slate-300 hover:border-orange-500/40 hover:text-white transition cursor-pointer"
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="h-3.5 w-3.5 text-amber-400" /> Claro
+                </>
+              ) : (
+                <>
+                  <Moon className="h-3.5 w-3.5 text-indigo-500" /> Oscuro
+                </>
+              )}
+            </button>
+          </div>
 
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
