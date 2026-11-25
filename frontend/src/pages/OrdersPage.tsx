@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { DatePicker } from '../components/ui/DatePicker';
 import { FormField, Input, Select, Textarea } from '../components/ui/FormField';
 import { Modal } from '../components/ui/Modal';
 import { AlertBanner, EmptyState, PageHeader } from '../components/ui/PageHeader';
@@ -469,10 +470,10 @@ export function OrdersPage() {
           </FormField>
 
           <FormField label="Fecha estimada de entrega (opcional)">
-            <Input
-              type="date"
+            <DatePicker
               value={estimatedDelivery}
-              onChange={(e) => setEstimatedDelivery(e.target.value)}
+              onChange={setEstimatedDelivery}
+              placeholder="Elegir fecha estimada..."
             />
           </FormField>
 
