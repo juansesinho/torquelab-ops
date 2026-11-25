@@ -13,6 +13,7 @@ import { ordersRepository, WorkOrderRow } from './orders.repository';
 import {
   AddOrderItemInput,
   CreateOrderInput,
+  CreatePaymentInput,
   OrderStatus,
   RequoteOrderInput,
   UpdateOrderInput,
@@ -112,8 +113,11 @@ export const ordersService = {
       throw new ForbiddenError('Esta orden está asignada a otro mecánico');
     }
 
-    const items = await ordersRepository.findItemsByOrderId(orderId);
-    return { ...order, items };
+    const [items, payments] = await Promise.all([
+      ordersRepository.findItemsByOrderId(orderId),
+      ordersRepository.findPaymentsByOrderId(orderId),
+    ]);
+    return { ...order, items, payments };
   },
 
   async claimOrder(orderId: number, user: AuthPayload) {
@@ -217,6 +221,10 @@ export const ordersService = {
         input.estimated_delivery !== undefined
           ? input.estimated_delivery || null
           : existing.estimated_delivery;
+      const nextChecklist =
+        input.inspection_checklist !== undefined
+          ? input.inspection_checklist
+          : existing.inspection_checklist ?? {};
 
       await client.query(
         `UPDATE work_orders
@@ -224,9 +232,17 @@ export const ordersService = {
              diagnosis = $2,
              labor_cost = $3,
              estimated_delivery = $4,
+             inspection_checklist = $5::jsonb,
              updated_at = NOW()
-         WHERE id = $5`,
-        [nextMechanic, nextDiagnosis, nextLaborCost, nextEstimatedDelivery, orderId]
+         WHERE id = $6`,
+        [
+          nextMechanic,
+          nextDiagnosis,
+          nextLaborCost,
+          nextEstimatedDelivery,
+          JSON.stringify(nextChecklist),
+          orderId,
+        ]
       );
 
       await ordersRepository.recalculateTotal(orderId, client);
@@ -525,6 +541,65 @@ export const ordersService = {
       ]);
 
       await ordersRepository.recalculateTotal(orderId, client);
+    });
+
+    return this.getOrderDetail(orderId, user);
+  },
+
+  async addPayment(orderId: number, input: CreatePaymentInput, user: AuthPayload) {
+    await withTransaction(async (client) => {
+      const orderRes = await client.query<{
+        id: number;
+        code: string;
+        status: OrderStatus;
+        total_cost: string;
+        client_id: number;
+      }>(
+        `SELECT wo.id, wo.code, wo.status, wo.total_cost, v.client_id
+         FROM work_orders wo
+         JOIN vehicles v ON v.id = wo.vehicle_id
+         WHERE wo.id = $1
+         FOR UPDATE OF wo`,
+        [orderId]
+      );
+      if (orderRes.rowCount === 0) {
+        throw new NotFoundError('Orden de trabajo no encontrada');
+      }
+      const order = orderRes.rows[0];
+      if (order.status === 'cancelled') {
+        throw new ConflictError('No se pueden registrar pagos en una orden cancelada');
+      }
+
+      const paidRes = await client.query<{ paid: string }>(
+        `SELECT COALESCE(SUM(amount), 0)::text AS paid FROM order_payments WHERE work_order_id = $1`,
+        [orderId]
+      );
+      const currentPaid = Number(paidRes.rows[0].paid);
+      const total = Number(order.total_cost);
+      if (total <= 0) {
+        throw new BadRequestError('La orden todavía no tiene un monto total presupuestado');
+      }
+      if (currentPaid + input.amount > total + 0.01) {
+        throw new BadRequestError(
+          `El pago excede el saldo pendiente ($${(total - currentPaid).toFixed(2)})`
+        );
+      }
+
+      await client.query(
+        `INSERT INTO order_payments (work_order_id, recorded_by, amount, method, notes)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [orderId, user.userId, input.amount, input.method, input.notes ?? null]
+      );
+
+      await notificationsRepository.create(
+        {
+          user_id: order.client_id,
+          work_order_id: order.id,
+          title: `Pago registrado — ${order.code}`,
+          message: `Se registró un pago de $${input.amount.toLocaleString('es-AR')} en tu orden ${order.code}.`,
+        },
+        client
+      );
     });
 
     return this.getOrderDetail(orderId, user);

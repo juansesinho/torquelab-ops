@@ -88,9 +88,20 @@ export function MechanicsPage() {
                 <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400 truncate">
                   <Mail className="h-3.5 w-3.5 shrink-0" /> {m.email}
                 </p>
-                <span className="mt-2 inline-block rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-[11px] font-medium text-slate-300">
-                  Rol: Mecánico
-                </span>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="inline-block rounded-full border border-slate-700 bg-slate-950 px-2.5 py-0.5 text-[11px] font-medium text-slate-300">
+                    Mecánico
+                  </span>
+                  {(m.active_orders_count ?? 0) === 0 ? (
+                    <span className="inline-block rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">
+                      Disponible
+                    </span>
+                  ) : (
+                    <span className="inline-block rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-amber-300">
+                      {m.active_orders_count} activa{(m.active_orders_count ?? 0) > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
               </div>
             </Card>
           ))}

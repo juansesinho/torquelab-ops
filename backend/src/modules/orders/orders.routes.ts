@@ -6,6 +6,7 @@ import { ordersController } from './orders.controller';
 import {
   addOrderItemSchema,
   createOrderSchema,
+  createPaymentSchema,
   listOrdersQuerySchema,
   orderIdParamSchema,
   orderItemParamSchema,
@@ -68,4 +69,10 @@ ordersRouter.delete(
   authorize('admin', 'mechanic'),
   validate({ params: orderItemParamSchema }),
   asyncHandler(ordersController.removeItem)
+);
+ordersRouter.post(
+  '/:id/payments',
+  authorize('admin'),
+  validate({ params: orderIdParamSchema, body: createPaymentSchema }),
+  asyncHandler(ordersController.addPayment)
 );

@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS work_orders (
   quote_version INTEGER NOT NULL DEFAULT 1 CHECK (quote_version >= 1),
   requote_reason TEXT,
   estimated_delivery DATE,
+  inspection_checklist JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -106,9 +107,22 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 
+CREATE TABLE IF NOT EXISTS order_payments (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  work_order_id INTEGER NOT NULL REFERENCES work_orders(id) ON DELETE CASCADE,
+  recorded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+  method VARCHAR(20) NOT NULL CHECK (method IN ('cash', 'transfer', 'card')),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_payments_order_id ON order_payments(work_order_id);
+
 -- Migraciones idempotentes para bases existentes
 ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS mileage INTEGER CHECK (mileage IS NULL OR mileage >= 0);
 ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS quote_version INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS requote_reason TEXT;
 ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS estimated_delivery DATE;
+ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS inspection_checklist JSONB NOT NULL DEFAULT '{}'::jsonb;
 

@@ -1,4 +1,5 @@
 import {
+  ChecklistStatus,
   DashboardSummary,
   NotificationItem,
   OrderStatus,
@@ -198,6 +199,7 @@ export const api = {
         diagnosis?: string | null;
         labor_cost?: number;
         estimated_delivery?: string | null;
+        inspection_checklist?: Record<string, ChecklistStatus>;
       }
     ) =>
       request<{ order: WorkOrder }>(`/orders/${id}`, {
@@ -225,6 +227,14 @@ export const api = {
     removeItem: (id: number, itemId: number) =>
       request<{ order: WorkOrder }>(`/orders/${id}/items/${itemId}`, {
         method: 'DELETE',
+      }),
+    addPayment: (
+      id: number,
+      payload: { amount: number; method: 'cash' | 'transfer' | 'card'; notes?: string | null }
+    ) =>
+      request<{ order: WorkOrder }>(`/orders/${id}/payments`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
       }),
   },
   dashboard: {

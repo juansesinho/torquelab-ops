@@ -38,11 +38,20 @@ export const createOrderSchema = z.object({
   estimated_delivery: z.string().trim().optional().nullable(),
 });
 
+export const checklistValueSchema = z.enum(['ok', 'attention', 'critical', 'pending']);
+
 export const updateOrderSchema = z.object({
   mechanic_id: z.coerce.number().int().positive().nullable().optional(),
   diagnosis: z.string().trim().max(2000).nullable().optional(),
   labor_cost: z.coerce.number().min(0, 'La mano de obra no puede ser negativa').optional(),
   estimated_delivery: z.string().trim().optional().nullable(),
+  inspection_checklist: z.record(z.string(), checklistValueSchema).optional(),
+});
+
+export const createPaymentSchema = z.object({
+  amount: z.coerce.number().positive('El monto del pago debe ser mayor a 0'),
+  method: z.enum(['cash', 'transfer', 'card']),
+  notes: z.string().trim().max(300).optional().nullable(),
 });
 
 export const updateOrderStatusSchema = z.object({
@@ -65,3 +74,4 @@ export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 export type AddOrderItemInput = z.infer<typeof addOrderItemSchema>;
 export type RequoteOrderInput = z.infer<typeof requoteOrderSchema>;
+export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;

@@ -197,11 +197,32 @@ Prefijo base: `/api`
   - *Trazabilidad:* `CA-02`.
 
 ### Inventario de Repuestos y Dashboard
-- **HU-11 — Alta y reposición de repuestos (`admin`)**
-  - **Como** jefe de taller, **quiero** dar de alta nuevos repuestos, visualizar alertas cuando el stock esté por debajo o igual al mínimo y registrar reposiciones, **para** evitar quiebres de inventario.
-  - *Trazabilidad:* `CB-04`, `CA-12`.
+- **HU-11 — Alta, movimientos y Kardex de repuestos (`admin`)**
+  - **Como** jefe de taller, **quiero** dar de alta repuestos, visualizar alertas cuando el stock esté por debajo o igual al mínimo y registrar ingresos de proveedores, egresos/mermas y ajustes con historial Kardex (`stock_movements`), **para** evitar quiebres y auditar el inventario.
+  - *Trazabilidad:* `CB-04`, `CA-12`, `CA-15`.
 
 - **HU-12 — Tablero de métricas del taller (`admin`, `mechanic`)**
-  - **Como** jefe de taller o mecánico, **quiero** ver un resumen con órdenes activas por estado, total facturado en órdenes finalizadas y lista de repuestos con stock crítico, **para** tomar decisiones operativas diarias.
-  - *Trazabilidad:* `CA-02`, `CA-12`.
+  - **Como** jefe de taller o mecánico, **quiero** ver un resumen con órdenes activas por estado, total facturado vs. cobrado real y lista de repuestos con stock crítico, **para** tomar decisiones operativas diarias.
+  - *Trazabilidad:* `CA-02`, `CA-12`, `CA-17`.
+
+### Extensiones Operativas del Taller
+- **HU-13 — Sistema de notificaciones por usuario (`admin`, `mechanic`, `client`)**
+  - **Como** usuario del sistema, **quiero** recibir notificaciones automáticas ante asignación de órdenes, presupuestos/represupuestos, aprobaciones, pagos y finalización, **para** actuar en tiempo real.
+  - *Trazabilidad:* `CA-13`.
+
+- **HU-14 — Represupuesto versionado (`admin`, `mechanic`, `client`)**
+  - **Como** mecánico o jefe de taller, **quiero** represupuestar una orden abierta indicando el motivo y mano de obra actualizada, **para** volver la orden a `quoted` (`v2`, `v3`…) y solicitar nueva aprobación del cliente.
+  - *Trazabilidad:* `CA-14`.
+
+- **HU-15 — Alta y carga de trabajo de mecánicos (`admin`)**
+  - **Como** jefe de taller, **quiero** dar de alta nuevos mecánicos (`POST /api/auth/mechanics`) y ver su carga actual de órdenes activas, **para** balancear los boxes.
+  - *Trazabilidad:* `CA-15`.
+
+- **HU-16 — Edición e historial de vehículos (`admin`, `client`)**
+  - **Como** jefe de taller o cliente propietario, **quiero** actualizar kilometraje/datos del vehículo y consultar su historial cronológico de órdenes, **para** mantener el legajo técnico al día.
+  - *Trazabilidad:* `CA-16`.
+
+- **HU-17 — Inspección tipo semáforo, pagos/señas y guía inicial (`admin`, `mechanic`, `client`)**
+  - **Como** equipo del taller, **quiero** registrar el semáforo de inspección técnica (OK/Revisar/Crítico) y los pagos/señas de cada orden (sin exceder el saldo pendiente), y ofrecer una guía interactiva por rol en el primer ingreso, **para** profesionalizar el servicio y la cobranza.
+  - *Trazabilidad:* `CA-17`.
 

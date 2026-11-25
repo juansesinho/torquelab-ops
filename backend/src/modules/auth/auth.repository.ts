@@ -52,7 +52,28 @@ export const authRepository = {
     return this.createUser(name, email, passwordHash, 'client');
   },
 
-  async listByRole(role: UserRole): Promise<Array<Pick<PublicUser, 'id' | 'name' | 'email' | 'role'>>> {
+  async listByRole(role: UserRole): Promise<
+    Array<Pick<PublicUser, 'id' | 'name' | 'email' | 'role'> & { active_orders_count?: number }>
+  > {
+    if (role === 'mechanic') {
+      const res = await pool.query<
+        Pick<PublicUser, 'id' | 'name' | 'email' | 'role'> & { active_orders_count: number }
+      >(
+        `SELECT
+           u.id,
+           u.name,
+           u.email,
+           u.role,
+           COUNT(wo.id) FILTER (WHERE wo.status NOT IN ('completed', 'cancelled'))::int AS active_orders_count
+         FROM users u
+         LEFT JOIN work_orders wo ON wo.mechanic_id = u.id
+         WHERE u.role = 'mechanic'
+         GROUP BY u.id, u.name, u.email, u.role
+         ORDER BY active_orders_count ASC, u.name ASC`
+      );
+      return res.rows;
+    }
+
     const res = await pool.query<Pick<PublicUser, 'id' | 'name' | 'email' | 'role'>>(
       `SELECT id, name, email, role
        FROM users

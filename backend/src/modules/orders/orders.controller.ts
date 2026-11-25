@@ -63,4 +63,13 @@ export const ordersController = {
     );
     res.status(200).json({ order });
   },
+
+  async addPayment(req: Request, res: Response) {
+    const order = await ordersService.addPayment(
+      Number(req.params.id),
+      req.body,
+      req.user!
+    );
+    res.status(201).json({ order });
+  },
 };

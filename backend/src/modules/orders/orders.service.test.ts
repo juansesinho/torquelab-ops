@@ -45,6 +45,7 @@ vi.mock('./orders.repository', () => ({
     findAll: vi.fn(),
     findById: vi.fn(),
     findItemsByOrderId: vi.fn(),
+    findPaymentsByOrderId: vi.fn(),
     findActiveByVehicleId: vi.fn(),
     create: vi.fn(),
     recalculateTotal: vi.fn(),

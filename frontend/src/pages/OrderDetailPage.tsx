@@ -1,6 +1,8 @@
 import {
   ArrowLeft,
   CheckCircle2,
+  ClipboardCheck,
+  CreditCard,
   FileText,
   Hand,
   Plus,
@@ -21,8 +23,30 @@ import { AlertBanner, PageHeader } from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
-import { OrderStatus, Part, User, WorkOrder } from '../types/domain';
+import { ChecklistStatus, OrderStatus, Part, User, WorkOrder } from '../types/domain';
 import { formatCurrency, formatDate } from '../utils/format';
+
+const CHECKLIST_ITEMS = [
+  { key: 'brakes', label: 'Frenos y Discos' },
+  { key: 'fluids', label: 'Aceite y Fluidos' },
+  { key: 'tires', label: 'Neumáticos y Presión' },
+  { key: 'battery', label: 'Batería y Alternador' },
+  { key: 'lights', label: 'Luces y Señalización' },
+  { key: 'suspension', label: 'Tren Delantero' },
+];
+
+const CHECKLIST_META: Record<ChecklistStatus, { label: string; cls: string }> = {
+  ok: { label: 'OK', cls: 'border-emerald-500/50 bg-emerald-500/15 text-emerald-300' },
+  attention: { label: 'Revisar', cls: 'border-amber-500/50 bg-amber-500/15 text-amber-300' },
+  critical: { label: 'Crítico', cls: 'border-rose-500/50 bg-rose-500/15 text-rose-300' },
+  pending: { label: 'Sin revisar', cls: 'border-slate-700 bg-slate-950 text-slate-400' },
+};
+
+const PAYMENT_METHOD_LABEL: Record<'cash' | 'transfer' | 'card', string> = {
+  cash: 'Efectivo',
+  transfer: 'Transferencia',
+  card: 'Tarjeta',
+};
 
 const QUICK_DIAGNOSTIC_PRESETS = [
   { label: 'Service 10.000 km', diagnosis: 'Cambio de aceite sintético, filtro de aceite y revisión de 25 puntos.', labor: '25000' },
@@ -66,6 +90,13 @@ export function OrderDetailPage() {
   const [requoteReason, setRequoteReason] = useState('');
   const [requoting, setRequoting] = useState(false);
 
+  const [checklist, setChecklist] = useState<Record<string, ChecklistStatus>>({});
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState<'cash' | 'transfer' | 'card'>('transfer');
+  const [payNotes, setPayNotes] = useState('');
+  const [paying, setPaying] = useState(false);
+
   const loadData = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -77,6 +108,7 @@ export function OrderDetailPage() {
       setLaborCost(String(res.order.labor_cost ?? 0));
       setMechanicId(res.order.mechanic_id ? String(res.order.mechanic_id) : '');
       setEstimatedDelivery(res.order.estimated_delivery ?? '');
+      setChecklist(res.order.inspection_checklist ?? {});
 
       if (user?.role !== 'client') {
         const [partsRes, mechRes] = await Promise.all([
@@ -103,6 +135,7 @@ export function OrderDetailPage() {
       diagnosis,
       labor_cost: Number(laborCost) || 0,
       estimated_delivery: estimatedDelivery || null,
+      inspection_checklist: checklist,
       ...(user?.role === 'admin'
         ? { mechanic_id: mechanicId ? Number(mechanicId) : null }
         : {}),
@@ -235,6 +268,41 @@ export function OrderDetailPage() {
       setError(err instanceof Error ? err.message : 'No se pudo represupuestar la orden');
     } finally {
       setRequoting(false);
+    }
+  }
+
+  async function handleChecklistChange(key: string, value: ChecklistStatus) {
+    if (!order || !canEditTechnical) return;
+    const next = { ...checklist, [key]: value };
+    setChecklist(next);
+    try {
+      const res = await api.orders.update(order.id, { inspection_checklist: next });
+      setOrder(res.order);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo actualizar la inspección');
+    }
+  }
+
+  async function handleRegisterPayment(e: FormEvent) {
+    e.preventDefault();
+    if (!order) return;
+    setError('');
+    setPaying(true);
+    try {
+      const res = await api.orders.addPayment(order.id, {
+        amount: Number(payAmount),
+        method: payMethod,
+        notes: payNotes.trim() || null,
+      });
+      setOrder(res.order);
+      setPaymentOpen(false);
+      setPayAmount('');
+      setPayNotes('');
+      notify('Pago registrado correctamente');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar el pago');
+    } finally {
+      setPaying(false);
     }
   }
 
@@ -607,6 +675,168 @@ export function OrderDetailPage() {
           </div>
         </Card>
       </div>
+
+      {/* Checklist Semáforo + Control de Pagos */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <div className="mb-4 flex items-center gap-2">
+            <ClipboardCheck className="h-4 w-4 text-orange-400" />
+            <h2 className="text-base font-semibold text-white">
+              Inspección Técnica (Semáforo)
+            </h2>
+          </div>
+          <div className="space-y-2.5">
+            {CHECKLIST_ITEMS.map((item) => {
+              const currentVal: ChecklistStatus = checklist[item.key] ?? 'pending';
+              const meta = CHECKLIST_META[currentVal];
+              return (
+                <div
+                  key={item.key}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm"
+                >
+                  <span className="font-medium text-slate-200">{item.label}</span>
+                  {canEditTechnical ? (
+                    <div className="flex gap-1">
+                      {(['ok', 'attention', 'critical'] as ChecklistStatus[]).map((st) => (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => handleChecklistChange(item.key, st)}
+                          className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold transition cursor-pointer ${
+                            currentVal === st
+                              ? CHECKLIST_META[st].cls
+                              : 'border-slate-800 text-slate-500 hover:text-slate-200'
+                          }`}
+                        >
+                          {CHECKLIST_META[st].label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <span
+                      className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${meta.cls}`}
+                    >
+                      {meta.label}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card className="flex flex-col justify-between">
+          <div>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-emerald-400" />
+                <h2 className="text-base font-semibold text-white">Pagos y Cobranza</h2>
+              </div>
+              {user?.role === 'admin' &&
+                order.status !== 'cancelled' &&
+                Number(order.total_cost) > Number(order.paid_amount ?? 0) && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const remaining = Math.max(
+                        0,
+                        Number(order.total_cost) - Number(order.paid_amount ?? 0)
+                      );
+                      setPayAmount(String(remaining));
+                      setPaymentOpen(true);
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Registrar Pago
+                  </Button>
+                )}
+            </div>
+
+            <div className="mb-4 grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <span className="text-[11px] uppercase text-slate-400">Abonado</span>
+                <p className="mt-1 font-mono text-lg font-bold text-emerald-400">
+                  {formatCurrency(order.paid_amount ?? 0)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <span className="text-[11px] uppercase text-slate-400">Saldo Pendiente</span>
+                <p className="mt-1 font-mono text-lg font-bold text-amber-400">
+                  {formatCurrency(
+                    Math.max(0, Number(order.total_cost) - Number(order.paid_amount ?? 0))
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {!order.payments || order.payments.length === 0 ? (
+              <p className="text-sm text-slate-400">Todavía no hay pagos registrados.</p>
+            ) : (
+              <div className="divide-y divide-slate-800">
+                {order.payments.map((pay) => (
+                  <div key={pay.id} className="flex items-center justify-between py-2.5 text-sm">
+                    <div>
+                      <p className="font-medium text-white">
+                        {PAYMENT_METHOD_LABEL[pay.method]}
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {formatDate(pay.created_at)}
+                        {pay.notes ? ` · ${pay.notes}` : ''}
+                      </p>
+                    </div>
+                    <span className="font-mono font-semibold text-emerald-400">
+                      + {formatCurrency(pay.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <Modal
+        open={paymentOpen}
+        title={`Registrar Pago / Seña — ${order.code}`}
+        onClose={() => setPaymentOpen(false)}
+      >
+        <form onSubmit={handleRegisterPayment} className="space-y-4">
+          <FormField label="Monto a registrar (ARS)">
+            <Input
+              type="number"
+              min={1}
+              step="0.01"
+              required
+              value={payAmount}
+              onChange={(e) => setPayAmount(e.target.value)}
+            />
+          </FormField>
+          <FormField label="Medio de pago">
+            <Select
+              value={payMethod}
+              onChange={(e) => setPayMethod(e.target.value as 'cash' | 'transfer' | 'card')}
+            >
+              <option value="transfer">Transferencia Bancaria</option>
+              <option value="cash">Efectivo</option>
+              <option value="card">Tarjeta Débito / Crédito</option>
+            </Select>
+          </FormField>
+          <FormField label="Observación / Comprobante (opcional)">
+            <Input
+              placeholder="Ej. Seña 50% comprobante #9921"
+              value={payNotes}
+              onChange={(e) => setPayNotes(e.target.value)}
+            />
+          </FormField>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setPaymentOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" loading={paying}>
+              Confirmar Pago
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         open={requoteOpen}

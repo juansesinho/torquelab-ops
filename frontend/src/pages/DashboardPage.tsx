@@ -85,11 +85,14 @@ export function DashboardPage() {
 
         <Card>
           <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-medium uppercase">Facturado Cerrado</span>
+            <span className="text-xs font-medium uppercase">Facturado / Cobrado</span>
             <DollarSign className="h-4 w-4 text-emerald-400" />
           </div>
           <p className="mt-2 font-mono text-2xl font-bold text-white">
             {formatCurrency(summary.completed_revenue)}
+          </p>
+          <p className="mt-1 font-mono text-xs text-emerald-400">
+            Cobrado real: {formatCurrency(summary.collected_revenue ?? 0)}
           </p>
         </Card>
 

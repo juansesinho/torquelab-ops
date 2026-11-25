@@ -22,8 +22,21 @@ export interface WorkOrderRow {
   quote_version: number;
   requote_reason: string | null;
   estimated_delivery: string | null;
+  inspection_checklist: Record<string, 'ok' | 'attention' | 'critical' | 'pending'>;
+  paid_amount: string;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface OrderPaymentRow {
+  id: number;
+  work_order_id: number;
+  recorded_by: number | null;
+  recorded_by_name: string | null;
+  amount: string;
+  method: 'cash' | 'transfer' | 'card';
+  notes: string | null;
+  created_at: Date;
 }
 
 export interface WorkOrderItemRow {
@@ -90,6 +103,8 @@ export const ordersRepository = {
          wo.quote_version,
          wo.requote_reason,
          TO_CHAR(wo.estimated_delivery, 'YYYY-MM-DD') AS estimated_delivery,
+         wo.inspection_checklist,
+         COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.work_order_id = wo.id), 0)::text AS paid_amount,
          wo.created_at,
          wo.updated_at
        FROM work_orders wo
@@ -126,6 +141,8 @@ export const ordersRepository = {
          wo.quote_version,
          wo.requote_reason,
          TO_CHAR(wo.estimated_delivery, 'YYYY-MM-DD') AS estimated_delivery,
+         wo.inspection_checklist,
+         COALESCE((SELECT SUM(op.amount) FROM order_payments op WHERE op.work_order_id = wo.id), 0)::text AS paid_amount,
          wo.created_at,
          wo.updated_at
        FROM work_orders wo
@@ -153,6 +170,27 @@ export const ordersRepository = {
        JOIN parts p ON p.id = woi.part_id
        WHERE woi.work_order_id = $1
        ORDER BY woi.id ASC`,
+      [orderId]
+    );
+    return res.rows;
+  },
+
+  async findPaymentsByOrderId(orderId: number, dbClient?: PoolClient): Promise<OrderPaymentRow[]> {
+    const runner = dbClient ?? pool;
+    const res = await runner.query<OrderPaymentRow>(
+      `SELECT
+         op.id,
+         op.work_order_id,
+         op.recorded_by,
+         u.name AS recorded_by_name,
+         op.amount,
+         op.method,
+         op.notes,
+         op.created_at
+       FROM order_payments op
+       LEFT JOIN users u ON u.id = op.recorded_by
+       WHERE op.work_order_id = $1
+       ORDER BY op.created_at DESC`,
       [orderId]
     );
     return res.rows;

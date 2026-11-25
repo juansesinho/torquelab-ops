@@ -14,7 +14,21 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  active_orders_count?: number;
   created_at?: string;
+}
+
+export type ChecklistStatus = 'ok' | 'attention' | 'critical' | 'pending';
+
+export interface OrderPayment {
+  id: number;
+  work_order_id: number;
+  recorded_by: number | null;
+  recorded_by_name: string | null;
+  amount: string;
+  method: 'cash' | 'transfer' | 'card';
+  notes: string | null;
+  created_at: string;
 }
 
 export interface Vehicle {
@@ -73,9 +87,12 @@ export interface WorkOrder {
   quote_version?: number;
   requote_reason?: string | null;
   estimated_delivery?: string | null;
+  inspection_checklist?: Record<string, ChecklistStatus>;
+  paid_amount?: string;
   created_at: string;
   updated_at: string;
   items?: WorkOrderItem[];
+  payments?: OrderPayment[];
 }
 
 export interface NotificationItem {
@@ -105,6 +122,7 @@ export interface DashboardSummary {
   by_status: Record<string, number>;
   active_orders: number;
   completed_revenue: number;
+  collected_revenue?: number;
   low_stock_parts: Array<{
     id: number;
     sku: string;
