@@ -166,6 +166,7 @@ export const ordersService = {
       vehicle_id: input.vehicle_id,
       mechanic_id: input.mechanic_id ?? null,
       problem_description: input.problem_description,
+      estimated_delivery: input.estimated_delivery || null,
     });
 
     const created = await ordersRepository.findById(orderId);
@@ -212,15 +213,20 @@ export const ordersService = {
         input.diagnosis !== undefined ? input.diagnosis : existing.diagnosis;
       const nextLaborCost =
         input.labor_cost !== undefined ? input.labor_cost : Number(existing.labor_cost);
+      const nextEstimatedDelivery =
+        input.estimated_delivery !== undefined
+          ? input.estimated_delivery || null
+          : existing.estimated_delivery;
 
       await client.query(
         `UPDATE work_orders
          SET mechanic_id = $1,
              diagnosis = $2,
              labor_cost = $3,
+             estimated_delivery = $4,
              updated_at = NOW()
-         WHERE id = $4`,
-        [nextMechanic, nextDiagnosis, nextLaborCost, orderId]
+         WHERE id = $5`,
+        [nextMechanic, nextDiagnosis, nextLaborCost, nextEstimatedDelivery, orderId]
       );
 
       await ordersRepository.recalculateTotal(orderId, client);

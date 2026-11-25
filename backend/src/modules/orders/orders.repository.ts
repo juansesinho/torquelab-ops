@@ -21,6 +21,7 @@ export interface WorkOrderRow {
   total_cost: string;
   quote_version: number;
   requote_reason: string | null;
+  estimated_delivery: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -88,6 +89,7 @@ export const ordersRepository = {
          wo.total_cost,
          wo.quote_version,
          wo.requote_reason,
+         TO_CHAR(wo.estimated_delivery, 'YYYY-MM-DD') AS estimated_delivery,
          wo.created_at,
          wo.updated_at
        FROM work_orders wo
@@ -123,6 +125,7 @@ export const ordersRepository = {
          wo.total_cost,
          wo.quote_version,
          wo.requote_reason,
+         TO_CHAR(wo.estimated_delivery, 'YYYY-MM-DD') AS estimated_delivery,
          wo.created_at,
          wo.updated_at
        FROM work_orders wo
@@ -170,15 +173,16 @@ export const ordersRepository = {
     vehicle_id: number;
     mechanic_id: number | null;
     problem_description: string;
+    estimated_delivery?: string | null;
   }): Promise<number> {
     const year = new Date().getFullYear();
     const tempCode = `OT-${year}-${Date.now().toString().slice(-6)}`;
 
     const res = await pool.query<{ id: number }>(
-      `INSERT INTO work_orders (code, vehicle_id, mechanic_id, status, problem_description)
-       VALUES ($1, $2, $3, 'received', $4)
+      `INSERT INTO work_orders (code, vehicle_id, mechanic_id, status, problem_description, estimated_delivery)
+       VALUES ($1, $2, $3, 'received', $4, $5)
        RETURNING id`,
-      [tempCode, data.vehicle_id, data.mechanic_id, data.problem_description]
+      [tempCode, data.vehicle_id, data.mechanic_id, data.problem_description, data.estimated_delivery || null]
     );
 
     const id = res.rows[0].id;

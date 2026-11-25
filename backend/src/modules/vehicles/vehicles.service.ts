@@ -39,6 +39,7 @@ export const vehiclesService = {
       brand: input.brand,
       model: input.model,
       year: input.year,
+      mileage: input.mileage ?? null,
     });
   },
 };

@@ -184,6 +184,29 @@ export function PartsPage() {
         }
       />
 
+      {!loading && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Card>
+            <span className="text-xs font-medium uppercase text-slate-400">Repuestos (SKUs)</span>
+            <p className="mt-1.5 font-mono text-2xl font-bold text-white">{parts.length}</p>
+          </Card>
+          <Card>
+            <span className="text-xs font-medium uppercase text-slate-400">En Alerta de Stock</span>
+            <p className="mt-1.5 font-mono text-2xl font-bold text-amber-400">
+              {parts.filter((p) => p.low_stock).length}
+            </p>
+          </Card>
+          <Card>
+            <span className="text-xs font-medium uppercase text-slate-400">Valorizado en Depósito</span>
+            <p className="mt-1.5 font-mono text-2xl font-bold text-emerald-400">
+              {formatCurrency(
+                parts.reduce((acc, p) => acc + p.stock * Number(p.unit_price), 0)
+              )}
+            </p>
+          </Card>
+        </div>
+      )}
+
       <Card className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-500" />

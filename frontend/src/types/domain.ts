@@ -25,6 +25,7 @@ export interface Vehicle {
   brand: string;
   model: string;
   year: number;
+  mileage?: number | null;
   created_at: string;
   active_order_id: number | null;
   active_order_code: string | null;
@@ -71,6 +72,7 @@ export interface WorkOrder {
   total_cost: string;
   quote_version?: number;
   requote_reason?: string | null;
+  estimated_delivery?: string | null;
   created_at: string;
   updated_at: string;
   items?: WorkOrderItem[];

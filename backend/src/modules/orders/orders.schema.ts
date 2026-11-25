@@ -35,12 +35,14 @@ export const createOrderSchema = z.object({
     .trim()
     .min(5, 'Describí el problema del vehículo (mínimo 5 caracteres)')
     .max(1000),
+  estimated_delivery: z.string().trim().optional().nullable(),
 });
 
 export const updateOrderSchema = z.object({
   mechanic_id: z.coerce.number().int().positive().nullable().optional(),
   diagnosis: z.string().trim().max(2000).nullable().optional(),
   labor_cost: z.coerce.number().min(0, 'La mano de obra no puede ser negativa').optional(),
+  estimated_delivery: z.string().trim().optional().nullable(),
 });
 
 export const updateOrderStatusSchema = z.object({

@@ -1,12 +1,15 @@
-import { Car, ClipboardList, LayoutDashboard, LogOut, Package, Users } from 'lucide-react';
+import { Car, ClipboardList, HelpCircle, LayoutDashboard, LogOut, Package, Users } from 'lucide-react';
+import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NotificationBell } from './NotificationBell';
+import { OnboardingTour } from './OnboardingTour';
 import { BrandLogo } from './ui/BrandLogo';
 
 export function Layout() {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const [tourOpen, setTourOpen] = useState(false);
 
   const navItems = [
     ...(user?.role !== 'client'
@@ -67,26 +70,39 @@ export function Layout() {
           </nav>
         </div>
 
-        <div className="p-4 border-t border-slate-800 flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-            <p className="text-xs text-orange-400">
-              {user ? roleLabels[user.role] : ''}
-            </p>
-          </div>
+        <div className="p-4 border-t border-slate-800 space-y-3">
           <button
-            onClick={logout}
-            title="Cerrar sesión"
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            type="button"
+            onClick={() => setTourOpen(true)}
+            className="w-full flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-medium text-slate-300 hover:border-orange-500/40 hover:text-white transition cursor-pointer"
           >
-            <LogOut className="h-4 w-4" />
+            <HelpCircle className="h-3.5 w-3.5 text-orange-400" />
+            Guía de uso interactiva
           </button>
+
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white truncate">{user?.name}</p>
+              <p className="text-xs text-orange-400">
+                {user ? roleLabels[user.role] : ''}
+              </p>
+            </div>
+            <button
+              onClick={logout}
+              title="Cerrar sesión"
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </aside>
 
       <main className="flex-1 p-5 md:p-8 max-w-7xl w-full mx-auto">
         <Outlet />
       </main>
+
+      <OnboardingTour forceOpen={tourOpen} onCloseForce={() => setTourOpen(false)} />
     </div>
   );
 }

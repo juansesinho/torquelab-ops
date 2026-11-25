@@ -19,9 +19,17 @@ import { FormField, Input, Select, Textarea } from '../components/ui/FormField';
 import { Modal } from '../components/ui/Modal';
 import { AlertBanner, PageHeader } from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import { OrderStatus, Part, User, WorkOrder } from '../types/domain';
 import { formatCurrency, formatDate } from '../utils/format';
+
+const QUICK_DIAGNOSTIC_PRESETS = [
+  { label: 'Service 10.000 km', diagnosis: 'Cambio de aceite sintético, filtro de aceite y revisión de 25 puntos.', labor: '25000' },
+  { label: 'Frenos delanteros', diagnosis: 'Pastillas delanteras desgastadas y revisión de discos/líquido de freno.', labor: '35000' },
+  { label: 'Escaneo OBD-II', diagnosis: 'Diagnóstico computarizado OBD-II, borrado de códigos y prueba de ruta.', labor: '18000' },
+  { label: 'Kit distribución', diagnosis: 'Reemplazo de correa de distribución, tensores y verificación de bomba de agua.', labor: '65000' },
+];
 
 const PIPELINE: Array<{ status: OrderStatus; label: string }> = [
   { status: 'received', label: '1. Ingresado' },
@@ -35,6 +43,7 @@ const PIPELINE: Array<{ status: OrderStatus; label: string }> = [
 export function OrderDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { notify } = useToast();
   const [order, setOrder] = useState<WorkOrder | null>(null);
   const [parts, setParts] = useState<Part[]>([]);
   const [mechanics, setMechanics] = useState<User[]>([]);
@@ -45,6 +54,7 @@ export function OrderDetailPage() {
   const [diagnosis, setDiagnosis] = useState('');
   const [laborCost, setLaborCost] = useState('0');
   const [mechanicId, setMechanicId] = useState('');
+  const [estimatedDelivery, setEstimatedDelivery] = useState('');
   const [savingOrder, setSavingOrder] = useState(false);
   const [submittingQuote, setSubmittingQuote] = useState(false);
 
@@ -66,6 +76,7 @@ export function OrderDetailPage() {
       setDiagnosis(res.order.diagnosis ?? '');
       setLaborCost(String(res.order.labor_cost ?? 0));
       setMechanicId(res.order.mechanic_id ? String(res.order.mechanic_id) : '');
+      setEstimatedDelivery(res.order.estimated_delivery ?? '');
 
       if (user?.role !== 'client') {
         const [partsRes, mechRes] = await Promise.all([
@@ -91,6 +102,7 @@ export function OrderDetailPage() {
     const res = await api.orders.update(order.id, {
       diagnosis,
       labor_cost: Number(laborCost) || 0,
+      estimated_delivery: estimatedDelivery || null,
       ...(user?.role === 'admin'
         ? { mechanic_id: mechanicId ? Number(mechanicId) : null }
         : {}),
@@ -432,6 +444,22 @@ export function OrderDetailPage() {
               )}
 
               <FormField label="Diagnóstico técnico (obligatorio para presupuestar)">
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {QUICK_DIAGNOSTIC_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        setDiagnosis(preset.diagnosis);
+                        setLaborCost(preset.labor);
+                        notify(`Plantilla "${preset.label}" aplicada`, 'info');
+                      }}
+                      className="rounded-md border border-slate-700 bg-slate-950 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:border-orange-500/60 hover:text-orange-300 transition cursor-pointer"
+                    >
+                      + {preset.label}
+                    </button>
+                  ))}
+                </div>
                 <Textarea
                   rows={3}
                   value={diagnosis}
@@ -440,15 +468,24 @@ export function OrderDetailPage() {
                 />
               </FormField>
 
-              <FormField label="Costo de Mano de Obra (ARS)">
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={laborCost}
-                  onChange={(e) => setLaborCost(e.target.value)}
-                />
-              </FormField>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <FormField label="Costo de Mano de Obra (ARS)">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={laborCost}
+                    onChange={(e) => setLaborCost(e.target.value)}
+                  />
+                </FormField>
+                <FormField label="Entrega estimada (opcional)">
+                  <Input
+                    type="date"
+                    value={estimatedDelivery}
+                    onChange={(e) => setEstimatedDelivery(e.target.value)}
+                  />
+                </FormField>
+              </div>
 
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" variant="secondary" loading={savingOrder}>

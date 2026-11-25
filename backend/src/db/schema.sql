@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
   brand VARCHAR(60) NOT NULL,
   model VARCHAR(60) NOT NULL,
   year INTEGER NOT NULL CHECK (year >= 1950 AND year <= 2100),
+  mileage INTEGER CHECK (mileage IS NULL OR mileage >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -53,6 +54,7 @@ CREATE TABLE IF NOT EXISTS work_orders (
   total_cost NUMERIC(12, 2) NOT NULL DEFAULT 0 CHECK (total_cost >= 0),
   quote_version INTEGER NOT NULL DEFAULT 1 CHECK (quote_version >= 1),
   requote_reason TEXT,
+  estimated_delivery DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -103,4 +105,10 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+
+-- Migraciones idempotentes para bases existentes
+ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS mileage INTEGER CHECK (mileage IS NULL OR mileage >= 0);
+ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS quote_version INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS requote_reason TEXT;
+ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS estimated_delivery DATE;
 

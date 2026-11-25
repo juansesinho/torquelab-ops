@@ -8,6 +8,7 @@ export interface VehicleRow {
   brand: string;
   model: string;
   year: number;
+  mileage: number | null;
   created_at: Date;
   active_order_id: number | null;
   active_order_code: string | null;
@@ -32,6 +33,7 @@ export const vehiclesRepository = {
          v.brand,
          v.model,
          v.year,
+         v.mileage,
          v.created_at,
          wo.id AS active_order_id,
          wo.code AS active_order_code,
@@ -58,6 +60,7 @@ export const vehiclesRepository = {
          v.brand,
          v.model,
          v.year,
+         v.mileage,
          v.created_at,
          wo.id AS active_order_id,
          wo.code AS active_order_code,
@@ -87,12 +90,13 @@ export const vehiclesRepository = {
     brand: string;
     model: string;
     year: number;
+    mileage?: number | null;
   }): Promise<VehicleRow> {
     const insertRes = await pool.query<{ id: number }>(
-      `INSERT INTO vehicles (client_id, plate, brand, model, year)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO vehicles (client_id, plate, brand, model, year, mileage)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
-      [data.client_id, data.plate, data.brand, data.model, data.year]
+      [data.client_id, data.plate, data.brand, data.model, data.year, data.mileage ?? null]
     );
     const created = await this.findById(insertRes.rows[0].id);
     return created!;

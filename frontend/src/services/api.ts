@@ -89,6 +89,7 @@ export const api = {
       brand: string;
       model: string;
       year: number;
+      mileage?: number | null;
     }) =>
       request<{ vehicle: Vehicle }>('/vehicles', {
         method: 'POST',
@@ -156,6 +157,7 @@ export const api = {
       vehicle_id: number;
       mechanic_id?: number | null;
       problem_description: string;
+      estimated_delivery?: string | null;
     }) =>
       request<{ order: WorkOrder }>('/orders', {
         method: 'POST',
@@ -167,6 +169,7 @@ export const api = {
         mechanic_id?: number | null;
         diagnosis?: string | null;
         labor_cost?: number;
+        estimated_delivery?: string | null;
       }
     ) =>
       request<{ order: WorkOrder }>(`/orders/${id}`, {

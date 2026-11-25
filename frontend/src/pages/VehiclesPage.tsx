@@ -26,6 +26,7 @@ export function VehiclesPage() {
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
   const [year, setYear] = useState('2022');
+  const [mileage, setMileage] = useState('');
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -60,11 +61,13 @@ export function VehiclesPage() {
         brand,
         model,
         year: Number(year),
+        mileage: mileage ? Number(mileage) : null,
       });
       setModalOpen(false);
       setPlate('');
       setBrand('');
       setModel('');
+      setMileage('');
       await loadVehicles();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Error al registrar vehículo');
@@ -133,7 +136,14 @@ export function VehiclesPage() {
                 <h3 className="mt-3 text-lg font-semibold text-white">
                   {v.brand} {v.model}
                 </h3>
-                <p className="text-xs text-slate-400">Titular: {v.client_name}</p>
+                <p className="text-xs text-slate-400">
+                  Titular: {v.client_name}
+                  {v.mileage != null && (
+                    <span className="ml-2 font-mono text-slate-300">
+                      · {v.mileage.toLocaleString('es-AR')} km
+                    </span>
+                  )}
+                </p>
               </div>
 
               <div className="border-t border-slate-800 pt-3">
@@ -209,16 +219,27 @@ export function VehiclesPage() {
             </FormField>
           </div>
 
-          <FormField label="Año">
-            <Input
-              type="number"
-              min={1950}
-              max={2100}
-              required
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-            />
-          </FormField>
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Año">
+              <Input
+                type="number"
+                min={1950}
+                max={2100}
+                required
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+              />
+            </FormField>
+            <FormField label="Kilometraje (opcional)">
+              <Input
+                type="number"
+                min={0}
+                placeholder="Ej. 65000"
+                value={mileage}
+                onChange={(e) => setMileage(e.target.value)}
+              />
+            </FormField>
+          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>

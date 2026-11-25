@@ -1,4 +1,4 @@
-import { ArrowRight, Hand, Plus, Search } from 'lucide-react';
+import { ArrowRight, Calendar, Copy, Hand, Plus, Search } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { StatusBadge } from '../components/StatusBadge';
@@ -8,9 +8,20 @@ import { FormField, Input, Select, Textarea } from '../components/ui/FormField';
 import { Modal } from '../components/ui/Modal';
 import { AlertBanner, EmptyState, PageHeader } from '../components/ui/PageHeader';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { api } from '../services/api';
 import { OrderStatus, User, Vehicle, WorkOrder } from '../types/domain';
 import { formatCurrency, formatDate } from '../utils/format';
+
+const STEP_INDEX: Record<OrderStatus, number> = {
+  received: 1,
+  diagnosing: 2,
+  quoted: 3,
+  approved: 4,
+  in_progress: 5,
+  completed: 6,
+  cancelled: 0,
+};
 
 const QUICK_STATUSES: Array<{ value: OrderStatus | ''; label: string }> = [
   { value: '', label: 'Todas' },
@@ -24,6 +35,7 @@ const QUICK_STATUSES: Array<{ value: OrderStatus | ''; label: string }> = [
 
 export function OrdersPage() {
   const { user } = useAuth();
+  const { notify } = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -41,6 +53,7 @@ export function OrdersPage() {
   const [vehicleId, setVehicleId] = useState(searchParams.get('newForVehicle') ?? '');
   const [mechanicId, setMechanicId] = useState('');
   const [problemDesc, setProblemDesc] = useState('');
+  const [estimatedDelivery, setEstimatedDelivery] = useState('');
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -89,11 +102,14 @@ export function OrdersPage() {
         vehicle_id: Number(vehicleId),
         mechanic_id: mechanicId ? Number(mechanicId) : null,
         problem_description: problemDesc,
+        estimated_delivery: estimatedDelivery || null,
       });
       setModalOpen(false);
       setVehicleId('');
       setMechanicId('');
       setProblemDesc('');
+      setEstimatedDelivery('');
+      notify(`Orden ${res.order.code} creada correctamente`);
       navigate(`/orders/${res.order.id}`);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Error al crear orden');
@@ -252,6 +268,90 @@ export function OrdersPage() {
             ) : undefined
           }
         />
+      ) : user?.role === 'client' ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {orders.map((order) => {
+            const step = STEP_INDEX[order.status];
+            return (
+              <Card
+                key={order.id}
+                className="flex flex-col justify-between gap-4 hover:border-orange-500/50 transition"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-orange-400">
+                          {order.code}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(order.code);
+                            notify(`Código ${order.code} copiado`, 'info');
+                          }}
+                          className="text-slate-500 hover:text-white cursor-pointer"
+                          title="Copiar código"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <h3 className="mt-1 text-lg font-semibold text-white">
+                        {order.brand} {order.model}{' '}
+                        <span className="font-mono text-sm text-slate-400">({order.plate})</span>
+                      </h3>
+                    </div>
+                    <StatusBadge status={order.status} />
+                  </div>
+
+                  <p className="text-xs text-slate-400 line-clamp-2">
+                    {order.problem_description}
+                  </p>
+
+                  {order.status !== 'cancelled' && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] text-slate-400">
+                        <span>Progreso de reparación</span>
+                        <span className="font-mono">{step}/6</span>
+                      </div>
+                      <div className="grid grid-cols-6 gap-1">
+                        {[1, 2, 3, 4, 5, 6].map((n) => (
+                          <span
+                            key={n}
+                            className={`h-1.5 rounded-full ${
+                              n <= step ? 'bg-orange-500' : 'bg-slate-800'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-3">
+                  <div>
+                    <div className="font-mono text-lg font-bold text-white">
+                      {formatCurrency(order.total_cost)}
+                    </div>
+                    {order.estimated_delivery && (
+                      <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                        <Calendar className="h-3 w-3" /> Entrega est.: {order.estimated_delivery}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={order.status === 'quoted' ? 'primary' : 'secondary'}
+                    onClick={() => navigate(`/orders/${order.id}`)}
+                  >
+                    {order.status === 'quoted' ? 'Revisar Presupuesto' : 'Ver Detalle'}{' '}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900">
           <table className="w-full text-left text-sm">
@@ -365,6 +465,14 @@ export function OrdersPage() {
               placeholder="Describí el motivo de ingreso del vehículo..."
               value={problemDesc}
               onChange={(e) => setProblemDesc(e.target.value)}
+            />
+          </FormField>
+
+          <FormField label="Fecha estimada de entrega (opcional)">
+            <Input
+              type="date"
+              value={estimatedDelivery}
+              onChange={(e) => setEstimatedDelivery(e.target.value)}
             />
           </FormField>
 
